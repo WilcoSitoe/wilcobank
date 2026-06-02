@@ -1,0 +1,83 @@
+// prisma/schema.prisma
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model Cliente {
+  id_cliente      Int      @id @default(autoincrement())
+  nome_cliente    String
+  apelido_cliente String?
+  email_cliente   String   @unique
+  senha_cliente   String
+  sexo_cliente    String?
+  BI_cliente      String?  @unique
+  data_criacao    DateTime @default(now())
+
+  contas          Conta[]
+  passwordHistory PasswordHistory[]
+}
+
+model TipoConta {
+  id_tipo   Int    @id
+  nome_tipo String
+
+  contas    Conta[]
+}
+
+model Conta {
+  id_conta     Int     @id @default(autoincrement())
+  numero_conta String  @unique
+  saldo        Float   @default(0)
+  id_tipo      Int?
+  id_cliente   Int?
+
+  tipo         TipoConta? @relation(fields: [id_tipo], references: [id_tipo])
+  cliente      Cliente?   @relation(fields: [id_cliente], references: [id_cliente])
+
+  operacoes    Operacao[]
+}
+
+model TiposOperacao {
+  id_tipo_O     Int    @id
+  nome_operacao String
+
+  operacoes     Operacao[]
+}
+
+model Operacao {
+  id_operacao       Int      @id @default(autoincrement())
+  data_operacao     DateTime @default(now())
+  valor             Float
+  id_tipo_O         Int?
+  numero_conta      String?
+  conta_relacionada String?
+  taxa_cobrada      Float    @default(0)
+  descricao         String?
+
+  tipo              TiposOperacao? @relation(fields: [id_tipo_O], references: [id_tipo_O])
+  conta             Conta?         @relation(fields: [numero_conta], references: [numero_conta])
+}
+
+model PasswordHistory {
+  id           Int      @id @default(autoincrement())
+  id_cliente   Int
+  senha_hash   String
+  data_criacao DateTime @default(now())
+
+  cliente      Cliente @relation(fields: [id_cliente], references: [id_cliente])
+}
+
+model PasswordReset {
+  email      String   @id
+  token      String
+  expires_at String
+  used       Int      @default(0)
+  created_at DateTime @default(now())
+}

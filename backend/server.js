@@ -7,15 +7,31 @@ const { loginLimiter, resetLimiter, logLoginAttempts } = require('./middleware/r
 
 const app = express();
 
-// Middlewares globais
-app.use(cors());
+// ✅ TRUST PROXY (necessário para Railway/Vercel - proxy reverso)
+app.set('trust proxy', 1);
+
+// ✅ CORS CONFIGURADO para produção e desenvolvimento
+app.use(cors({
+  origin: [
+    'http://localhost:5173',                    // Desenvolvimento local (Vite)
+    'http://localhost:3000',                    // Alternativo local
+    'https://wilcobank.vercel.app',             // Teu domínio no Vercel
+    'https://wilcobank-production.vercel.app',  // URL alternativo do Vercel
+    /\.vercel\.app$/                            // Qualquer subdomínio vercel.app
+  ],
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
+
 app.use(express.json());
 
-// 🔒 Cabeçalhos de segurança
+// 🔒 Cabeçalhos de segurança adicionais
 app.use((req, res, next) => {
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('X-Frame-Options', 'DENY');
   res.setHeader('X-XSS-Protection', '1; mode=block');
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
   next();
 });
 
@@ -37,18 +53,28 @@ app.use('/api/extrato', require('./routes/extrato'));
 
 // Rota de teste
 app.get('/', (req, res) => {
-  res.json({ message: 'WilcoBank API rodando com Prisma + Supabase!' });
+  res.json({ 
+    message: 'WilcoBank API rodando com Prisma + Supabase!',
+    status: 'online',
+    timestamp: new Date().toISOString()
+  });
+});
+
+// ✅ Health check (Railway usa isto para verificar se está vivo)
+app.get('/health', (req, res) => {
+  res.status(200).json({ status: 'ok', database: 'connected' });
 });
 
 const PORT = process.env.PORT || 3001;
 const server = app.listen(PORT, () => {
-  console.log(`\n🚀 Servidor rodando em http://localhost:${PORT}`);
+  console.log(`\n🚀 Servidor rodando na porta ${PORT}`);
   console.log(`🗄️  Database: PostgreSQL (Supabase via Prisma)`);
   console.log(`🔒 Rate Limiting: ATIVO`);
-  console.log(`📊 Login attempts logging: ATIVO\n`);
+  console.log(`📊 Login attempts logging: ATIVO`);
+  console.log(`🌍 Ambiente: ${process.env.NODE_ENV || 'development'}\n`);
 });
 
-// ✅ NOVO: Graceful shutdown — desliga o Prisma quando o servidor parar
+// ✅ Graceful shutdown — desliga o Prisma quando o servidor parar
 process.on('SIGTERM', async () => {
   console.log('SIGTERM recebido. A desligar servidor e Prisma...');
   await prisma.$disconnect();

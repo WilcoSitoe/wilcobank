@@ -1,6 +1,13 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
+import {
+  FaExclamationTriangle,
+  FaCheckCircle,
+  FaTimesCircle,
+  FaUserPlus,
+  FaArrowLeft
+} from 'react-icons/fa';
 
 export default function Registrar() {
   const [form, setForm] = useState({
@@ -13,60 +20,60 @@ export default function Registrar() {
     numero_conta: '', 
     tipo: '1'
   });
-  
+
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
   const handleChange = (e) => {
     const { id, value } = e.target;
-    
+
     // Validar apenas números para o campo numero_conta
     if (id === 'numero_conta' && !/^\d*$/.test(value)) {
       return; // Ignora caracteres não numéricos
     }
-    
+
     // Limitar BI a 14 caracteres (formato angolano)
     if (id === 'bi' && value.length > 14) {
       return;
     }
-    
+
     setForm({ ...form, [id]: value });
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
+
     // Validações adicionais
     if (!form.nome || !form.apelido || !form.email || !form.bi || !form.senha || !form.numero_conta) {
-      alert('⚠️ Por favor, preencha todos os campos obrigatórios');
+      alert('Por favor, preencha todos os campos obrigatórios');
       return;
     }
-    
+
     if (form.numero_conta.length < 4) {
-      alert('⚠️ Número da conta deve ter pelo menos 4 dígitos');
+      alert('Número da conta deve ter pelo menos 4 dígitos');
       return;
     }
-    
+
     if (form.senha.length < 6) {
-      alert('⚠️ A senha deve ter pelo menos 6 caracteres');
+      alert('A senha deve ter pelo menos 6 caracteres');
       return;
     }
-    
+
     if (!/^\d+$/.test(form.numero_conta)) {
-      alert('⚠️ Número da conta deve conter apenas dígitos');
+      alert('Número da conta deve conter apenas dígitos');
       return;
     }
-    
+
     setLoading(true);
-    
+
     try {
       const res = await api.post('/auth/register', form);
-      alert('✅ Cliente cadastrado com sucesso!\nID: ' + res.data.id_cliente + '\nConta: ' + res.data.numero_conta);
+      alert('Cliente cadastrado com sucesso!\nID: ' + res.data.id_cliente + '\nConta: ' + res.data.numero_conta);
       navigate('/admin');
     } catch (err) {
       console.error('Erro detalhado:', err);
       const errorMsg = err.response?.data?.error || err.message || 'Erro desconhecido';
-      alert('❌ Erro ao cadastrar: ' + errorMsg);
+      alert('Erro ao cadastrar: ' + errorMsg);
     } finally {
       setLoading(false);
     }
@@ -85,18 +92,22 @@ export default function Registrar() {
         textAlign: 'center', 
         color: 'rgb(40,40,60)', 
         fontFamily: 'Rockwell',
-        marginBottom: '10px'
+        marginBottom: '10px',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: '10px'
       }}>
-        Registrar Cliente e Conta
+        <FaUserPlus /> Registrar Cliente e Conta
       </h2>
       <p style={{ textAlign: 'center', color: '#666', fontSize: '14px' }}>
         Preencha os dados abaixo para criar um novo cliente
       </p>
-      
+
       <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '15px', marginTop: '20px' }}>
         <fieldset style={{ border: '1px solid #ddd', padding: '20px', borderRadius: '6px' }}>
           <legend style={{ fontWeight: 'bold', color: 'rgb(40,40,60)' }}>Dados do Cliente</legend>
-          
+
           <input 
             id="nome" 
             placeholder="Nome *" 
@@ -105,7 +116,7 @@ export default function Registrar() {
             required 
             style={{ width: '100%', padding: '10px', marginBottom: '10px', borderRadius: '4px', border: '1px solid #ccc', boxSizing: 'border-box' }} 
           />
-          
+
           <input 
             id="apelido" 
             placeholder="Apelido *" 
@@ -114,7 +125,7 @@ export default function Registrar() {
             required 
             style={{ width: '100%', padding: '10px', marginBottom: '10px', borderRadius: '4px', border: '1px solid #ccc', boxSizing: 'border-box' }} 
           />
-          
+
           <input 
             id="email" 
             type="email" 
@@ -124,7 +135,7 @@ export default function Registrar() {
             required 
             style={{ width: '100%', padding: '10px', marginBottom: '10px', borderRadius: '4px', border: '1px solid #ccc', boxSizing: 'border-box' }} 
           />
-          
+
           <input 
             id="bi" 
             placeholder="Número do BI *" 
@@ -135,7 +146,7 @@ export default function Registrar() {
             style={{ width: '100%', padding: '10px', marginBottom: '10px', borderRadius: '4px', border: '1px solid #ccc', boxSizing: 'border-box' }} 
           />
           <small style={{ color: '#666', display: 'block', marginBottom: '10px' }}>Ex: 001234567LA001</small>
-          
+
           <select 
             id="sexo" 
             value={form.sexo}
@@ -145,7 +156,7 @@ export default function Registrar() {
             <option value="Masculino">Masculino</option>
             <option value="Feminino">Feminino</option>
           </select>
-          
+
           <input 
             id="senha" 
             type="password" 
@@ -160,7 +171,7 @@ export default function Registrar() {
 
         <fieldset style={{ border: '1px solid #ddd', padding: '20px', borderRadius: '6px' }}>
           <legend style={{ fontWeight: 'bold', color: 'rgb(40,40,60)' }}>Dados da Conta</legend>
-          
+
           <input 
             id="numero_conta" 
             placeholder="Número da Conta (apenas números) *" 
@@ -170,7 +181,7 @@ export default function Registrar() {
             minLength="4"
             style={{ width: '100%', padding: '10px', marginBottom: '10px', borderRadius: '4px', border: '1px solid #ccc', boxSizing: 'border-box' }} 
           />
-          
+
           <select 
             id="tipo" 
             value={form.tipo}
@@ -194,10 +205,13 @@ export default function Registrar() {
               borderRadius: '4px', 
               cursor: loading ? 'not-allowed' : 'pointer', 
               fontWeight: 'bold',
-              opacity: loading ? 0.7 : 1
+              opacity: loading ? 0.7 : 1,
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px'
             }}
           >
-            {loading ? 'Salvando...' : 'Salvar'}
+            {loading ? 'Salvando...' : <><FaCheckCircle /> Salvar</>}
           </button>
           <button 
             type="button" 
@@ -209,10 +223,13 @@ export default function Registrar() {
               border: 'none', 
               borderRadius: '4px', 
               cursor: 'pointer', 
-              fontWeight: 'bold' 
+              fontWeight: 'bold',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px'
             }}
           >
-            Voltar
+            <FaArrowLeft /> Voltar
           </button>
         </div>
       </form>

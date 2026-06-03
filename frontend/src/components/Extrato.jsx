@@ -1,5 +1,22 @@
 import { useState, useEffect } from 'react';
 import api from '../services/api';
+import {
+  FaPlusCircle,
+  FaMinusCircle,
+  FaExchangeAlt,
+  FaChartLine,
+  FaMoneyBillWave,
+  FaSpinner,
+  FaFilePdf,
+  FaTimes,
+  FaInbox,
+  FaSync,
+  FaExclamationTriangle,
+  FaCheckCircle,
+  FaSearch,
+  FaFilter,
+  FaClock
+} from 'react-icons/fa';
 
 export default function Extrato({ clienteId, tipoConta }) {
   const [transacoes, setTransacoes] = useState([]);
@@ -7,50 +24,50 @@ export default function Extrato({ clienteId, tipoConta }) {
   const [debugInfo, setDebugInfo] = useState('');
   const [exportLoading, setExportLoading] = useState(false);
 
-  // ✅ Estados do filtro simplificado
+  // Estados do filtro simplificado
   const [filtroTipo, setFiltroTipo] = useState('');
   const [filtroValor, setFiltroValor] = useState('');
 
-  console.log('🔍 [EXTRATO] Renderizado - clienteId:', clienteId);
+  console.log('[EXTRATO] Renderizado - clienteId:', clienteId);
 
   useEffect(() => {
     if (!clienteId) {
-      console.error('❌ [EXTRATO] clienteId é nulo ou undefined');
+      console.error('[EXTRATO] clienteId é nulo ou undefined');
       setStatus('error');
-      setDebugInfo('❌ clienteId não fornecido');
+      setDebugInfo('clienteId não fornecido');
       return;
     }
 
-    console.log('🔄 [EXTRATO] Iniciando carregamento para cliente:', clienteId);
+    console.log('[EXTRATO] Iniciando carregamento para cliente:', clienteId);
     setStatus('loading');
 
     const url = `/clientes/${clienteId}/extrato`;
-    console.log('📡 [EXTRATO] Fazendo request:', url);
+    console.log('[EXTRATO] Fazendo request:', url);
 
     api.get(url)
       .then(res => {
-        console.log('✅ [EXTRATO] Response recebido:', res.data);
-        console.log('📊 [EXTRATO] Número de transações:', res.data?.length);
+        console.log('[EXTRATO] Response recebido:', res.data);
+        console.log('[EXTRATO] Número de transações:', res.data?.length);
         if (res.data && res.data.length > 0) {
-          console.log('📋 [EXTRATO] Primeira transação:', res.data[0]);
+          console.log('[EXTRATO] Primeira transação:', res.data[0]);
         }
         setTransacoes(res.data);
         setStatus('success');
-        setDebugInfo(`✅ ${res.data.length} transações carregadas`);
+        setDebugInfo(`${res.data.length} transações carregadas`);
       })
       .catch(err => {
-        console.error('❌ [EXTRATO] Erro na requisição:', err);
-        console.error('❌ [EXTRATO] Response:', err.response?.data);
-        console.error('❌ [EXTRATO] Status:', err.response?.status);
+        console.error('[EXTRATO] Erro na requisição:', err);
+        console.error('[EXTRATO] Response:', err.response?.data);
+        console.error('[EXTRATO] Status:', err.response?.status);
         setStatus('error');
-        setDebugInfo(`❌ ${err.message} - ${err.response?.status || 'Sem resposta'}`);
+        setDebugInfo(`${err.message} - ${err.response?.status || 'Sem resposta'}`);
       });
   }, [clienteId]);
 
   const formatarMoeda = (val) => 
     new Intl.NumberFormat('pt-MZ', { style: 'currency', currency: 'MZN' }).format(val || 0);
 
-  // ✅ Aplicar filtros simplificados
+  // Aplicar filtros simplificados
   const transacoesFiltradas = transacoes.filter(t => {
     // Filtro por tipo
     if (filtroTipo && t.tipo !== filtroTipo) return false;
@@ -66,10 +83,10 @@ export default function Extrato({ clienteId, tipoConta }) {
     setFiltroValor('');
   };
 
-  // 🔹 Função de Exportação (apenas PDF)
+  // Função de Exportação (apenas PDF)
   const exportarExtrato = (formato) => {
     if (!clienteId) {
-      alert('❌ Erro: Cliente não identificado');
+      alert('Erro: Cliente não identificado');
       return;
     }
 
@@ -80,7 +97,7 @@ export default function Extrato({ clienteId, tipoConta }) {
 
     const url = `/extrato/${clienteId}/export?format=${formato}&data_inicio=${data_inicio}&data_fim=${data_fim}`;
 
-    console.log(`📤 [EXPORT] Solicitando PDF: ${api.defaults.baseURL}${url}`);
+    console.log(`[EXPORT] Solicitando PDF: ${api.defaults.baseURL}${url}`);
 
     const downloadUrl = `${api.defaults.baseURL}${url}`;
     const newWindow = window.open(downloadUrl, '_blank');
@@ -88,9 +105,9 @@ export default function Extrato({ clienteId, tipoConta }) {
     setTimeout(() => {
       setExportLoading(false);
       if (newWindow && !newWindow.closed) {
-        alert(`✅ A gerar extrato PDF...\n\n💡 Se o download não iniciar, verifica se os popups estão bloqueados.`);
+        alert(`A gerar extrato PDF...\n\nSe o download não iniciar, verifica se os popups estão bloqueados.`);
       } else {
-        alert(`⚠️ Popup bloqueado!\n\nPermite popups para ${window.location.origin} e tenta novamente.`);
+        alert(`Popup bloqueado!\n\nPermite popups para ${window.location.origin} e tenta novamente.`);
       }
     }, 1500);
   };
@@ -99,24 +116,26 @@ export default function Extrato({ clienteId, tipoConta }) {
   return (
     <div style={{ padding: '20px', background: '#f8f9fa', borderRadius: '8px', fontFamily: 'monospace', fontSize: '12px' }}>
 
-      {/* 🔧 Debug Box */}
+      {/* Debug Box */}
       <div style={{ background: 'white', padding: '15px', borderRadius: '6px', marginBottom: '15px', border: '2px solid #ddd' }}>
-        <h4 style={{ margin: '0 0 10px 0', color: '#333' }}>🔧 Debug do Extrato</h4>
+        <h4 style={{ margin: '0 0 10px 0', color: '#333', display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <FaSearch size={14} /> Debug do Extrato
+        </h4>
         <p style={{ margin: '5px 0' }}>
-          <strong>Cliente ID:</strong> {clienteId || '❌ undefined'}
+          <strong>Cliente ID:</strong> {clienteId || 'undefined'}
         </p>
         <p style={{ margin: '5px 0' }}>
           <strong>Status:</strong> {status}
         </p>
         <p style={{ margin: '5px 0' }}>
-          <strong>Transações:</strong> {Array.isArray(transacoes) ? transacoes.length : '❌ não é array'}
+          <strong>Transações:</strong> {Array.isArray(transacoes) ? transacoes.length : 'não é array'}
         </p>
         <p style={{ margin: '5px 0', color: status === 'error' ? '#c00' : '#666' }}>
           <strong>Info:</strong> {debugInfo || 'Carregando...'}
         </p>
       </div>
 
-      {/* ✅ PAINEL DE FILTROS SIMPLIFICADO */}
+      {/* PAINEL DE FILTROS SIMPLIFICADO */}
       {status === 'success' && transacoes.length > 0 && (
         <div style={{ 
           background: 'white', 
@@ -125,7 +144,9 @@ export default function Extrato({ clienteId, tipoConta }) {
           marginBottom: '15px', 
           border: '2px solid #ddd' 
         }}>
-          <h4 style={{ margin: '0 0 12px 0', color: '#333', fontSize: '13px' }}>🔍 Filtrar Transações</h4>
+          <h4 style={{ margin: '0 0 12px 0', color: '#333', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <FaFilter size={12} /> Filtrar Transações
+          </h4>
 
           <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'flex-end' }}>
             {/* Tipo */}
@@ -172,16 +193,19 @@ export default function Extrato({ clienteId, tipoConta }) {
                   cursor: 'pointer',
                   fontSize: '12px',
                   fontWeight: 'bold',
-                  fontFamily: 'monospace'
+                  fontFamily: 'monospace',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px'
                 }}
               >
-                ✕ Limpar
+                <FaTimes size={10} /> Limpar
               </button>
             </div>
           </div>
 
-          <p style={{ margin: '10px 0 0 0', fontSize: '11px', color: '#666' }}>
-            📊 Mostrando <strong>{transacoesFiltradas.length}</strong> de <strong>{transacoes.length}</strong> transações
+          <p style={{ margin: '10px 0 0 0', fontSize: '11px', color: '#666', display: 'flex', alignItems: 'center', gap: '4px' }}>
+            <FaCheckCircle size={10} /> Mostrando <strong>{transacoesFiltradas.length}</strong> de <strong>{transacoes.length}</strong> transações
             {(filtroTipo || filtroValor) && (
               <span> (filtros ativos)</span>
             )}
@@ -189,7 +213,7 @@ export default function Extrato({ clienteId, tipoConta }) {
         </div>
       )}
 
-      {/* 📤 Botão de Exportação PDF */}
+      {/* Botão de Exportação PDF */}
       {status === 'success' && (
         <div style={{ display: 'flex', gap: '10px', marginBottom: '20px', flexWrap: 'wrap', alignItems: 'center' }}>
 
@@ -236,7 +260,7 @@ export default function Extrato({ clienteId, tipoConta }) {
             }}
             title="Exportar extrato em PDF (formato profissional)"
           >
-            {exportLoading ? '⏳ A gerar...' : '📄 Exportar PDF'}
+            {exportLoading ? <><FaSpinner className="spin" /> A gerar...</> : <><FaFilePdf /> Exportar PDF</>}
           </button>
         </div>
       )}
@@ -244,7 +268,9 @@ export default function Extrato({ clienteId, tipoConta }) {
       {/* Estado: Carregando */}
       {status === 'loading' && (
         <div style={{ textAlign: 'center', padding: '30px', color: '#666' }}>
-          <p style={{ fontSize: '18px' }}>🔄 Carregando extrato...</p>
+          <p style={{ fontSize: '18px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px' }}>
+            <FaSpinner className="spin" /> Carregando extrato...
+          </p>
           <p style={{ fontSize: '12px' }}>Aguardando resposta da API...</p>
         </div>
       )}
@@ -252,13 +278,15 @@ export default function Extrato({ clienteId, tipoConta }) {
       {/* Estado: Erro */}
       {status === 'error' && (
         <div style={{ background: '#fee', border: '2px solid #fcc', borderRadius: '8px', padding: '20px', color: '#c00' }}>
-          <p style={{ margin: '0 0 10px 0', fontWeight: 'bold' }}>❌ Erro ao carregar extrato</p>
+          <p style={{ margin: '0 0 10px 0', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <FaExclamationTriangle /> Erro ao carregar extrato
+          </p>
           <p style={{ margin: 0, fontFamily: 'monospace' }}>{debugInfo}</p>
           <button 
             onClick={() => window.location.reload()}
-            style={{ marginTop: '15px', padding: '8px 16px', background: '#c00', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
+            style={{ marginTop: '15px', padding: '8px 16px', background: '#c00', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}
           >
-            🔄 Recarregar Página
+            <FaSync /> Recarregar Página
           </button>
         </div>
       )}
@@ -266,7 +294,9 @@ export default function Extrato({ clienteId, tipoConta }) {
       {/* Estado: Sem transações */}
       {status === 'success' && transacoesFiltradas.length === 0 && (
         <div style={{ textAlign: 'center', padding: '40px', color: '#999' }}>
-          <p style={{ fontSize: '48px', margin: '0 0 10px 0' }}>📭</p>
+          <p style={{ fontSize: '48px', margin: '0 0 10px 0', display: 'flex', justifyContent: 'center' }}>
+            <FaInbox size={48} />
+          </p>
           <p style={{ margin: 0, fontWeight: '500' }}>Nenhuma transação encontrada</p>
           {(filtroTipo || filtroValor) && (
             <p style={{ margin: '10px 0 0 0', fontSize: '13px' }}>
@@ -284,8 +314,8 @@ export default function Extrato({ clienteId, tipoConta }) {
       {/* Estado: Sucesso com dados - Tabela */}
       {status === 'success' && transacoesFiltradas.length > 0 && (
         <div>
-          <p style={{ fontSize: '12px', color: '#666', marginBottom: '10px' }}>
-            ✅ {transacoesFiltradas.length} transações encontradas
+          <p style={{ fontSize: '12px', color: '#666', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+            <FaCheckCircle size={10} /> {transacoesFiltradas.length} transações encontradas
           </p>
 
           <div style={{ overflowX: 'auto' }}>
@@ -304,9 +334,11 @@ export default function Extrato({ clienteId, tipoConta }) {
                     <td style={{ padding: '10px', color: '#555', fontSize: '13px' }}>{t.data}</td>
                     <td style={{ padding: '10px', fontSize: '13px' }}>
                       <span style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-                        {t.tipo === 'Deposito' && '🟢'}
-                        {t.tipo === 'Levantamento' && '🔴'}
-                        {t.tipo === 'Transferencia' && '🔵'} 
+                        {t.tipo === 'Deposito' && <FaPlusCircle color="#28a745" />}
+                        {t.tipo === 'Levantamento' && <FaMinusCircle color="#dc3545" />}
+                        {t.tipo === 'Transferencia' && <FaExchangeAlt color="#007bff" />}
+                        {t.tipo === 'Juros' && <FaChartLine color="#9c27b0" />}
+                        {t.tipo === 'Taxa de Serviço' && <FaMoneyBillWave color="#6c757d" />}
                         {t.tipo}
                       </span>
                     </td>
@@ -322,8 +354,8 @@ export default function Extrato({ clienteId, tipoConta }) {
             </table>
           </div>
 
-          <p style={{ textAlign: 'center', fontSize: '11px', color: '#999', marginTop: '15px' }}>
-            📋 A mostrar {transacoesFiltradas.length} transações • Última atualização: {new Date().toLocaleTimeString('pt-AO')}
+          <p style={{ textAlign: 'center', fontSize: '11px', color: '#999', marginTop: '15px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}>
+            <FaClock size={10} /> A mostrar {transacoesFiltradas.length} transações • Última atualização: {new Date().toLocaleTimeString('pt-AO')}
           </p>
         </div>
       )}

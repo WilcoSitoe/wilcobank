@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
+import { FaLock, FaLightbulb, FaTimes } from 'react-icons/fa';
 
 export default function Login() {
   const [email, setEmail] = useState('');
@@ -9,35 +10,35 @@ export default function Login() {
   const [showRecover, setShowRecover] = useState(false);
   const [recoverEmail, setRecoverEmail] = useState('');
   const [recoverLoading, setRecoverLoading] = useState(false);
-  
+
   const navigate = useNavigate();
 
   const handleLogin = async (e) => {
     e.preventDefault();
     setLoading(true);
-    
+
     try {
       const res = await api.post('/auth/login', { email, senha });
       const { id, tipoConta, nome, conta, token, role } = res.data;
-      
+
       localStorage.setItem('wilcobank_user', JSON.stringify({ id, nome, conta, tipoConta, token, role }));
-      
+
       alert(`Bem-vindo, ${nome}!`);
-      
-      // ✅ REDIRECIONAMENTO: Admin vai para /admin
+
+      // REDIRECIONAMENTO: Admin vai para /admin
       if (tipoConta === 'admin' || role === 'admin') {
         navigate('/admin');
       } else {
         // Normaliza o tipo de conta para comparação (remove cedilhas, lowercase)
         const tipoNormalizado = tipoConta?.toLowerCase().replace(/ç/g, 'c').replace(/ã/g, 'a');
-        
+
         if (tipoNormalizado === 'poupanca' || tipoConta === '2' || tipoConta === 2) {
-          // ✅ Redireciona para a tela de Poupança
+          // Redireciona para a tela de Poupança
           navigate('/poupanca', { 
             state: { id_cliente: id, nome, conta, tipoConta } 
           });
         } else {
-          // ✅ Redireciona para a tela padrão (Conta Corrente)
+          // Redireciona para a tela padrão (Conta Corrente)
           navigate('/dashboard', { 
             state: { id_cliente: id, nome, conta, tipoConta } 
           });
@@ -45,7 +46,7 @@ export default function Login() {
       }
     } catch (err) {
       console.error('Erro no login:', err);
-      alert('❌ ' + (err.response?.data?.error || 'Email ou senha incorretos!'));
+      alert('Email ou senha incorretos!');
     } finally {
       setLoading(false);
     }
@@ -54,17 +55,17 @@ export default function Login() {
   const handleRecoverPassword = async (e) => {
     e.preventDefault();
     setRecoverLoading(true);
-    
+
     try {
       const res = await api.post('/auth/forgot-password', { email: recoverEmail });
-      
-      alert(`✅ ${res.data.message}\n\n💡 Dica: Verifica a tua caixa de entrada para o link de recuperação.`);
-      
+
+      alert(`${res.data.message}\n\nVerifica a tua caixa de entrada para o link de recuperação.`);
+
       setShowRecover(false);
       setRecoverEmail('');
     } catch (err) {
       console.error('Erro na recuperação:', err);
-      alert('❌ ' + (err.response?.data?.error || 'Erro ao solicitar recuperação. Tenta novamente.'));
+      alert('Erro ao solicitar recuperação. Tenta novamente.');
     } finally {
       setRecoverLoading(false);
     }
@@ -86,12 +87,12 @@ export default function Login() {
         <p style={{ color: 'rgb(100,100,120)', fontStyle: 'italic' }}>
           Confiança e Credibilidade
         </p>
-        
+
         <form onSubmit={handleLogin} style={{ width: '350px', marginTop: '30px' }}>
           <h3 style={{ textAlign: 'center', marginBottom: '25px', color: 'rgb(40,40,60)' }}>
             Acesse sua conta
           </h3>
-          
+
           <div style={{ marginBottom: '18px' }}>
             <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '6px', fontSize: '13px' }}>
               Email:
@@ -113,7 +114,7 @@ export default function Login() {
               }}
             />
           </div>
-          
+
           <div style={{ marginBottom: '20px' }}>
             <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '6px', fontSize: '13px' }}>
               Senha:
@@ -135,7 +136,7 @@ export default function Login() {
               }}
             />
           </div>
-          
+
           {/* Link Recuperar Senha */}
           <div style={{ marginBottom: '20px', textAlign: 'right' }}>
             <button 
@@ -156,7 +157,7 @@ export default function Login() {
               Esqueceu a senha?
             </button>
           </div>
-          
+
           <button 
             type="submit" 
             disabled={loading || showRecover}
@@ -177,7 +178,7 @@ export default function Login() {
             {loading ? 'Entrando...' : 'Entrar'}
           </button>
         </form>
-        
+
         <p style={{ marginTop: '20px', fontSize: '13px', color: '#666' }}>
           Não tem conta?{' '}
           <button 
@@ -198,7 +199,7 @@ export default function Login() {
           </button>
         </p>
       </div>
-      
+
       <div style={{ 
         width: '50%', 
         background: 'rgb(40,40,60)', 
@@ -211,7 +212,7 @@ export default function Login() {
         </h1>
       </div>
 
-      {/* 🔐 Modal de Recuperar Senha */}
+      {/* Modal de Recuperar Senha */}
       {showRecover && (
         <div style={{
           position: 'absolute',
@@ -255,16 +256,19 @@ export default function Login() {
                 justifyContent: 'center'
               }}
             >
-              ×
+              <FaTimes size={14} />
             </button>
 
             <h3 style={{ 
               margin: '0 0 10px 0', 
               fontFamily: 'Rockwell', 
               color: 'rgb(40,40,60)',
-              fontSize: '20px'
+              fontSize: '20px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '10px'
             }}>
-              🔐 Recuperar Senha
+              <FaLock color="rgb(70,130,180)" /> Recuperar Senha
             </h3>
             <p style={{ 
               color: '#666', 
@@ -274,7 +278,7 @@ export default function Login() {
             }}>
               Digite o email cadastrado e enviaremos instruções para redefinir sua senha.
             </p>
-            
+
             <form onSubmit={handleRecoverPassword}>
               <input 
                 type="email" 
@@ -293,7 +297,7 @@ export default function Login() {
                   boxSizing: 'border-box'
                 }}
               />
-              
+
               <button 
                 type="submit"
                 disabled={recoverLoading}
@@ -314,14 +318,18 @@ export default function Login() {
                 {recoverLoading ? 'Enviando...' : 'Enviar Instruções'}
               </button>
             </form>
-            
+
             <p style={{ 
               marginTop: '15px', 
               fontSize: '12px', 
               color: '#999', 
-              textAlign: 'center' 
+              textAlign: 'center',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '6px'
             }}>
-              💡 Verifica a tua caixa de entrada (e spam) para o link de recuperação.
+              <FaLightbulb size={12} /> Verifica a tua caixa de entrada (e spam) para o link de recuperação.
             </p>
           </div>
         </div>

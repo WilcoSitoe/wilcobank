@@ -1,9 +1,19 @@
 import { useNavigate } from 'react-router-dom';
+import {
+  FaUniversity,
+  FaPhone,
+  FaWhatsapp,
+  FaEnvelope,
+  FaClock,
+  FaArrowLeft,
+  FaUser,
+  FaHeadset
+} from 'react-icons/fa';
 
 export default function Suporte() {
   const navigate = useNavigate();
 
-  // ⚙️ CONFIGURAÇÃO: Dados de contacto do Admin
+  // CONFIGURAÇÃO: Dados de contacto do Admin
   const adminContact = {
     nome: 'Administrador Wilco',
     telefone: '+258 843991992', // ← ALTERE PARA O NÚMERO REAL
@@ -36,9 +46,12 @@ export default function Suporte() {
           borderRadius: '50px',
           marginBottom: '30px',
           fontFamily: 'Rockwell',
-          fontSize: '18px'
+          fontSize: '18px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '10px'
         }}>
-          🏦 WilcoBank
+          <FaUniversity /> WilcoBank
         </div>
 
         <h2 style={{ 
@@ -50,7 +63,7 @@ export default function Suporte() {
         }}>
           Registo de Novos Clientes
         </h2>
-        
+
         <p style={{ 
           color: 'rgb(100,100,120)', 
           textAlign: 'center', 
@@ -79,21 +92,21 @@ export default function Suporte() {
             alignItems: 'center',
             gap: '10px'
           }}>
-            📞 Contacte-nos para apoio
+            <FaHeadset /> Contacte-nos para apoio
           </h3>
-          
+
           <div style={{ marginBottom: '15px' }}>
-            <p style={{ margin: '5px 0', fontSize: '14px', color: '#666' }}>
-              <strong>Responsável:</strong>
+            <p style={{ margin: '5px 0', fontSize: '14px', color: '#666', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <FaUser size={12} /> <strong>Responsável:</strong>
             </p>
             <p style={{ margin: '5px 0', fontSize: '16px', fontWeight: 'bold', color: 'rgb(40,40,60)' }}>
               {adminContact.nome}
             </p>
           </div>
-          
+
           <div style={{ marginBottom: '15px' }}>
-            <p style={{ margin: '5px 0', fontSize: '14px', color: '#666' }}>
-              <strong>Telefone / WhatsApp:</strong>
+            <p style={{ margin: '5px 0', fontSize: '14px', color: '#666', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <FaPhone size={12} /> <strong>Telefone / WhatsApp:</strong>
             </p>
             <a 
               href={`https://wa.me/${adminContact.telefone.replace(/\D/g, '')}`} 
@@ -110,13 +123,13 @@ export default function Suporte() {
                 gap: '8px'
               }}
             >
-              💬 {adminContact.telefone}
+              <FaWhatsapp /> {adminContact.telefone}
             </a>
           </div>
-          
+
           <div style={{ marginBottom: '15px' }}>
-            <p style={{ margin: '5px 0', fontSize: '14px', color: '#666' }}>
-              <strong>Email:</strong>
+            <p style={{ margin: '5px 0', fontSize: '14px', color: '#666', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <FaEnvelope size={12} /> <strong>Email:</strong>
             </p>
             <a 
               href={`mailto:${adminContact.email}`}
@@ -124,16 +137,19 @@ export default function Suporte() {
                 margin: '5px 0', 
                 fontSize: '15px', 
                 color: 'rgb(70,130,180)', 
-                textDecoration: 'none' 
+                textDecoration: 'none',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px'
               }}
             >
-              {adminContact.email}
+              <FaEnvelope size={14} /> {adminContact.email}
             </a>
           </div>
-          
+
           <div>
-            <p style={{ margin: '5px 0', fontSize: '14px', color: '#666' }}>
-              <strong>Horário de Atendimento:</strong>
+            <p style={{ margin: '5px 0', fontSize: '14px', color: '#666', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <FaClock size={12} /> <strong>Horário de Atendimento:</strong>
             </p>
             <p style={{ margin: '5px 0', fontSize: '15px', fontWeight: '500', color: 'rgb(40,40,60)' }}>
               {adminContact.horario}
@@ -153,15 +169,18 @@ export default function Suporte() {
             fontWeight: 'bold',
             fontFamily: 'Rockwell',
             fontSize: '14px',
-            transition: 'background 0.2s'
+            transition: 'background 0.2s',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px'
           }}
           onMouseOver={(e) => e.target.style.background = 'rgb(50,100,150)'}
           onMouseOut={(e) => e.target.style.background = 'rgb(70,130,180)'}
         >
-          ← Voltar ao Login
+          <FaArrowLeft /> Voltar ao Login
         </button>
       </div>
-      
+
       {/* Lado Direito - Branding */}
       <div style={{ 
         width: '50%', 
@@ -191,7 +210,7 @@ export default function Suporte() {
           bottom: '15%',
           left: '15%'
         }} />
-        
+
         <div style={{ textAlign: 'center', zIndex: 1 }}>
           <h1 style={{ color: 'white', fontFamily: 'Rockwell', fontSize: '52px', margin: '0 0 15px 0' }}>
             WBank

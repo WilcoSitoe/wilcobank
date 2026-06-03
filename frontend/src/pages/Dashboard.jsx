@@ -2,22 +2,33 @@ import { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import api from '../services/api';
 import Extrato from '../components/Extrato';
+import {
+  FaCheckCircle,
+  FaTimesCircle,
+  FaPaperPlane,
+  FaMoneyBillWave,
+  FaCoins,
+  FaUniversity,
+  FaFileAlt,
+  FaLightbulb,
+  FaArrowRight
+} from 'react-icons/fa';
 
 export default function Dashboard() {
   const location = useLocation();
   const navigate = useNavigate();
-  
+
   const clienteId = location.state?.id_cliente; 
 
   const [dados, setDados] = useState(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('saldo');
-  
+
   const [valorLev, setValorLev] = useState('');
   const [contaDestino, setContaDestino] = useState('');
   const [valorTrans, setValorTrans] = useState('');
-  
-  // ✅ Estado para taxa de transferência calculada
+
+  // Estado para taxa de transferência calculada
   const [taxaCalculada, setTaxaCalculada] = useState(0);
 
   useEffect(() => {
@@ -29,7 +40,7 @@ export default function Dashboard() {
     carregarDados();
   }, [clienteId, navigate]);
 
-  // ✅ Efeito para recalcular taxa quando o valor da transferência muda
+  // Efeito para recalcular taxa quando o valor da transferência muda
   useEffect(() => {
     if (valorTrans && !isNaN(parseFloat(valorTrans))) {
       setTaxaCalculada(calcularTaxa(parseFloat(valorTrans)));
@@ -38,17 +49,17 @@ export default function Dashboard() {
     }
   }, [valorTrans]);
 
-  // ✅ Função para calcular taxa (mesma lógica do backend)
+  // Função para calcular taxa (mesma lógica do backend)
   const calcularTaxa = (valor) => {
     const TAXA_PERCENTUAL = 0.02; // 2%
     const VALOR_MINIMO_PARA_TAXA = 100; // Transferências < 100 MT são gratuitas
     const VALOR_MAXIMO_TAXA = 500; // Taxa máxima de 500 MT
-    
+
     if (!valor || valor < VALOR_MINIMO_PARA_TAXA) return 0;
-    
+
     let taxa = valor * TAXA_PERCENTUAL;
     if (taxa > VALOR_MAXIMO_TAXA) taxa = VALOR_MAXIMO_TAXA;
-    
+
     return Math.round(taxa * 100) / 100; // Arredondar para 2 casas decimais
   };
 
@@ -67,45 +78,45 @@ export default function Dashboard() {
     e.preventDefault();
     try {
       const res = await api.post(`/clientes/${clienteId}/levantamento`, { valor: parseFloat(valorLev) });
-      alert(`✅ Sucesso! Saldo atual: ${formatarMoeda(res.data.novo_saldo)}`);
+      alert(`Sucesso! Saldo atual: ${formatarMoeda(res.data.novo_saldo)}`);
       setValorLev('');
       carregarDados();
     } catch (err) {
-      alert('❌ ' + (err.response?.data?.error || err.message));
+      alert('Erro: ' + (err.response?.data?.error || err.message));
     }
   };
 
   const handleTransferencia = async (e) => {
     e.preventDefault();
-    
+
     const valor = parseFloat(valorTrans);
     const totalComTaxa = valor + taxaCalculada;
-    
-    // ✅ Validar saldo incluindo a taxa
+
+    // Validar saldo incluindo a taxa
     if (totalComTaxa > dados.saldo) {
-      alert(`❌ Saldo insuficiente. Necessitas de ${formatarMoeda(totalComTaxa)} (valor: ${formatarMoeda(valor)} + taxa: ${formatarMoeda(taxaCalculada)})`);
+      alert(`Saldo insuficiente. Necessitas de ${formatarMoeda(totalComTaxa)} (valor: ${formatarMoeda(valor)} + taxa: ${formatarMoeda(taxaCalculada)})`);
       return;
     }
-    
+
     try {
       const res = await api.post(`/clientes/${clienteId}/transferencia`, { 
         valor: valor, 
         conta_destino: contaDestino 
       });
-      
-      // ✅ Mostrar resumo com taxa no alerta de sucesso
-      alert(`✅ Transferência realizada!\n\n📤 Valor enviado: ${formatarMoeda(valor)}\n💸 Taxa de serviço: ${formatarMoeda(res.data.taxa_cobrada || 0)}\n💰 Total debitado: ${formatarMoeda(res.data.valor_total_debitado || totalComTaxa)}\n🏦 Novo saldo: ${formatarMoeda(res.data.novo_saldo)}`);
-      
+
+      // Mostrar resumo com taxa no alerta de sucesso
+      alert(`Transferência realizada!\n\nValor enviado: ${formatarMoeda(valor)}\nTaxa de serviço: ${formatarMoeda(res.data.taxa_cobrada || 0)}\nTotal debitado: ${formatarMoeda(res.data.valor_total_debitado || totalComTaxa)}\nNovo saldo: ${formatarMoeda(res.data.novo_saldo)}`);
+
       setContaDestino('');
       setValorTrans('');
       setTaxaCalculada(0);
       carregarDados();
     } catch (err) {
-      alert('❌ ' + (err.response?.data?.error || err.message));
+      alert('Erro: ' + (err.response?.data?.error || err.message));
     }
   };
 
-  // ✅ Formatador de moeda MZN (Metical)
+  // Formatador de moeda MZN (Metical)
   const formatarMoeda = (val) => 
     new Intl.NumberFormat('pt-MZ', { style: 'currency', currency: 'MZN' }).format(val || 0);
 
@@ -130,10 +141,16 @@ export default function Dashboard() {
         padding: '30px', 
         borderRadius: '12px', 
         marginBottom: '30px',
-        boxShadow: '0 4px 15px rgba(0,0,0,0.2)'
+        boxShadow: '0 4px 15px rgba(0,0,0,0.2)',
+        display: 'flex',
+        alignItems: 'center',
+        gap: '15px'
       }}>
-        <p style={{ margin: 0, opacity: 0.8 }}>Saldo Disponível</p>
-        <h1 style={{ margin: '10px 0 0 0', fontSize: '2.5rem' }}>{formatarMoeda(dados.saldo)}</h1>
+        <FaCoins size={40} style={{ opacity: 0.8 }} />
+        <div>
+          <p style={{ margin: 0, opacity: 0.8 }}>Saldo Disponível</p>
+          <h1 style={{ margin: '10px 0 0 0', fontSize: '2.5rem' }}>{formatarMoeda(dados.saldo)}</h1>
+        </div>
       </div>
 
       {/* Botões de Ação */}
@@ -145,15 +162,16 @@ export default function Dashboard() {
           flex: 1, padding: '12px', 
           background: activeTab === 'extrato' ? '#6c757d' : '#eee', 
           color: activeTab === 'extrato' ? 'white' : '#333', 
-          border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' 
+          border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px'
         }}>
-          📜 Extrato
+          <FaFileAlt /> Extrato
         </button>
       </div>
 
       {/* Área de Conteúdo */}
       <div style={{ background: 'white', padding: '30px', borderRadius: '12px', boxShadow: '0 2px 10px rgba(0,0,0,0.05)', minHeight: '200px' }}>
-        
+
         {/* ABA: VER DADOS */}
         {activeTab === 'saldo' && (
           <div>
@@ -188,7 +206,7 @@ export default function Dashboard() {
         {activeTab === 'transferencia' && (
           <form onSubmit={handleTransferencia}>
             <h3 style={{ marginTop: 0, fontFamily: 'Rockwell' }}>Transferência Bancária</h3>
-            
+
             <div style={{ 
               background: '#e3f2fd', 
               padding: '12px', 
@@ -196,11 +214,15 @@ export default function Dashboard() {
               marginBottom: '20px',
               borderLeft: '4px solid #2196F3',
               fontSize: '13px',
-              color: '#1565c0'
+              color: '#1565c0',
+              display: 'flex',
+              alignItems: 'flex-start',
+              gap: '10px'
             }}>
-              💡 Transferências só podem ser realizadas entre contas correntes. É cobrada uma taxa de 2% para valores ≥ 100 MT (máx. 500 MT).
+              <FaLightbulb size={16} style={{ marginTop: '2px', flexShrink: 0 }} />
+              <span>Transferências só podem ser realizadas entre contas correntes. É cobrada uma taxa de 2% para valores ≥ 100 MT (máx. 500 MT).</span>
             </div>
-            
+
             <label style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold' }}>Número da Conta Destino</label>
             <input 
               type="text" 
@@ -210,7 +232,7 @@ export default function Dashboard() {
               required 
               style={{ width: '100%', padding: '12px', marginBottom: '15px', border: '1px solid #ddd', borderRadius: '6px', fontSize: '16px' }}
             />
-            
+
             <label style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold' }}>Valor a Transferir (MT)</label>
             <input 
               type="number" 
@@ -222,8 +244,8 @@ export default function Dashboard() {
               step="0.01"
               style={{ width: '100%', padding: '12px', marginBottom: '15px', border: '1px solid #ddd', borderRadius: '6px', fontSize: '16px' }}
             />
-            
-            {/* ✅ RESUMO DA TRANSFERÊNCIA COM TAXA */}
+
+            {/* RESUMO DA TRANSFERÊNCIA COM TAXA */}
             {parseFloat(valorTrans) > 0 && (
               <div style={{ 
                 background: '#f8f9fa', 
@@ -232,13 +254,15 @@ export default function Dashboard() {
                 marginBottom: '20px',
                 border: '1px solid #dee2e6'
               }}>
-                <p style={{ margin: '0 0 10px 0', fontWeight: 'bold', fontSize: '14px', color: '#333' }}>💰 Resumo da Transferência</p>
-                
+                <p style={{ margin: '0 0 10px 0', fontWeight: 'bold', fontSize: '14px', color: '#333', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <FaMoneyBillWave /> Resumo da Transferência
+                </p>
+
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '5px', fontSize: '14px' }}>
                   <span style={{ color: '#666' }}>Valor a transferir:</span>
                   <span>{formatarMoeda(parseFloat(valorTrans) || 0)}</span>
                 </div>
-                
+
                 {taxaCalculada > 0 && (
                   <>
                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '5px', fontSize: '14px' }}>
@@ -258,21 +282,21 @@ export default function Dashboard() {
                     </div>
                   </>
                 )}
-                
+
                 {taxaCalculada === 0 && parseFloat(valorTrans) >= 100 && (
-                  <p style={{ margin: '10px 0 0 0', fontSize: '12px', color: '#28a745', fontStyle: 'italic' }}>
-                    ✅ Isento de taxa (promoção especial!)
+                  <p style={{ margin: '10px 0 0 0', fontSize: '12px', color: '#28a745', fontStyle: 'italic', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <FaCheckCircle /> Isento de taxa (promoção especial!)
                   </p>
                 )}
-                
+
                 {parseFloat(valorTrans) < 100 && parseFloat(valorTrans) > 0 && (
-                  <p style={{ margin: '10px 0 0 0', fontSize: '12px', color: '#666', fontStyle: 'italic' }}>
-                    💡 Transferências abaixo de 100 MT não têm taxa.
+                  <p style={{ margin: '10px 0 0 0', fontSize: '12px', color: '#666', fontStyle: 'italic', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <FaLightbulb /> Transferências abaixo de 100 MT não têm taxa.
                   </p>
                 )}
               </div>
             )}
-            
+
             <button 
               type="submit" 
               disabled={parseFloat(valorTrans) <= 0 || !contaDestino}
@@ -285,9 +309,14 @@ export default function Dashboard() {
                 borderRadius: '6px', 
                 fontSize: '16px', 
                 cursor: (parseFloat(valorTrans) <= 0 || !contaDestino) ? 'not-allowed' : 'pointer', 
-                fontWeight: 'bold' 
+                fontWeight: 'bold',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '8px'
               }}
             >
+              <FaPaperPlane />
               {(parseFloat(valorTrans) <= 0 || !contaDestino) ? 'Preencha todos os campos' : 'Confirmar Transferência'}
             </button>
           </form>

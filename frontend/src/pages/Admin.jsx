@@ -6,7 +6,8 @@ import {
   FaSpinner, FaExclamationTriangle, FaArrowUp, FaArrowDown,
   FaFlask, FaSearch, FaFilePdf, FaTimes, FaPlusCircle,
   FaMinusCircle, FaExchangeAlt, FaChartLine, FaMoneyBillWave,
-  FaCheckCircle, FaDoorOpen, FaUserShield, FaPercentage
+  FaCheckCircle, FaDoorOpen, FaUserShield, FaPercentage,
+  FaUserPlus
 } from 'react-icons/fa';
 
 export default function Admin() {
@@ -65,6 +66,7 @@ export default function Admin() {
     localStorage.removeItem('token');
     localStorage.removeItem('tipo');
     localStorage.removeItem('cliente');
+    localStorage.removeItem('wilcobank_user');
     navigate('/');
   };
 
@@ -131,11 +133,18 @@ export default function Admin() {
     setTimeout(() => setNotificacao(null), 4000);
   };
 
-  const clientesFiltrados = clientes.filter(c =>
-    c.nome_cliente?.toLowerCase().includes(search.toLowerCase()) ||
-    c.email_cliente?.toLowerCase().includes(search.toLowerCase()) ||
-    c.numero_conta?.includes(search)
-  );
+  // CORRIGIDO: Filtro de pesquisa mais robusto
+  const clientesFiltrados = clientes.filter(c => {
+    const termo = search.toLowerCase().trim();
+    if (!termo) return true;
+    return (
+      (c.nome_cliente && c.nome_cliente.toLowerCase().includes(termo)) ||
+      (c.apelido_cliente && c.apelido_cliente.toLowerCase().includes(termo)) ||
+      (c.email_cliente && c.email_cliente.toLowerCase().includes(termo)) ||
+      (c.numero_conta && c.numero_conta.includes(termo)) ||
+      (c.BI_cliente && c.BI_cliente.includes(termo))
+    );
+  });
 
   const getTipoIcon = (tipo) => {
     switch (tipo) {
@@ -148,8 +157,100 @@ export default function Admin() {
     }
   };
 
+  // CORRIGIDO: Exportar PDF das TRANSFERÊNCIAS (da aba Relatórios)
   const exportarPDF = () => {
-    window.print();
+    if (!relatorios?.transacoesRecentes || relatorios.transacoesRecentes.length === 0) {
+      mostrarNotificacao('Nenhuma transação para exportar', 'error');
+      return;
+    }
+
+    const transacoes = relatorios.transacoesRecentes;
+
+    // Criar conteúdo HTML para impressão
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) {
+      mostrarNotificacao('Permita popups para exportar PDF', 'error');
+      return;
+    }
+
+    const html = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Relatório de Transações - WilcoBank</title>
+        <style>
+          body { font-family: Arial, sans-serif; margin: 40px; color: #333; }
+          h1 { color: #1a1a2e; border-bottom: 3px solid #e94560; padding-bottom: 10px; }
+          h2 { color: #666; font-size: 16px; margin-top: 30px; }
+          table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+          th { background: #1a1a2e; color: white; padding: 12px; text-align: left; font-size: 12px; text-transform: uppercase; }
+          td { padding: 10px 12px; border-bottom: 1px solid #eee; font-size: 14px; }
+          tr:nth-child(even) { background: #f9fafb; }
+          .footer { margin-top: 40px; font-size: 12px; color: #999; text-align: center; }
+          .total { font-weight: bold; color: #1a1a2e; }
+          .badge { padding: 4px 10px; border-radius: 12px; font-size: 11px; font-weight: bold; }
+          .badge-deposito { background: #d4edda; color: #155724; }
+          .badge-levantamento { background: #f8d7da; color: #721c24; }
+          .badge-transferencia { background: #cce5ff; color: #004085; }
+          .badge-juros { background: #e2d4f0; color: #4a148c; }
+          .badge-taxa { background: #e2e3e5; color: #383d41; }
+        </style>
+      </head>
+      <body>
+        <h1><span style="color: #e94560;">●</span> WilcoBank</h1>
+        <h2>Relatório de Transações Financeiras</h2>
+        <p><strong>Data:</strong> ${new Date().toLocaleDateString('pt-AO')}</p>
+        <p><strong>Total de Transações:</strong> ${transacoes.length}</p>
+
+        <table>
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Data</th>
+              <th>Cliente</th>
+              <th>Tipo</th>
+              <th>Valor</th>
+              <th>Taxa</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${transacoes.map(t => {
+              let badgeClass = 'badge-taxa';
+              if (t.tipo === 'Deposito') badgeClass = 'badge-deposito';
+              else if (t.tipo === 'Levantamento') badgeClass = 'badge-levantamento';
+              else if (t.tipo === 'Transferencia') badgeClass = 'badge-transferencia';
+              else if (t.tipo === 'Juros') badgeClass = 'badge-juros';
+
+              return `
+                <tr>
+                  <td>#${t.id_operacao}</td>
+                  <td>${new Date(t.data_operacao).toLocaleDateString('pt-AO')} ${new Date(t.data_operacao).toLocaleTimeString('pt-AO', {hour: '2-digit', minute: '2-digit'})}</td>
+                  <td>${t.nome_cliente}</td>
+                  <td><span class="badge ${badgeClass}">${t.tipo}</span></td>
+                  <td class="total">${t.valor?.toLocaleString('pt-AO')} Kz</td>
+                  <td>${t.taxa_cobrada > 0 ? t.taxa_cobrada + ' Kz' : '-'}</td>
+                </tr>
+              `;
+            }).join('')}
+          </tbody>
+        </table>
+
+        <div class="footer">
+          <p>WilcoBank - Relatório gerado em ${new Date().toLocaleString('pt-AO')}</p>
+          <p>Este documento é confidencial.</p>
+        </div>
+      </body>
+      </html>
+    `;
+
+    printWindow.document.write(html);
+    printWindow.document.close();
+    printWindow.focus();
+
+    // Pequeno delay para carregar estilos antes de print
+    setTimeout(() => {
+      printWindow.print();
+    }, 250);
   };
 
   return (
@@ -191,7 +292,39 @@ export default function Admin() {
           </div>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '24px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+          {/* NOVO: Botão Cadastrar Cliente */}
+          <button
+            onClick={() => navigate('/registrar')}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              background: 'linear-gradient(135deg, #059669, #10b981)',
+              border: 'none',
+              color: '#fff',
+              padding: '8px 16px',
+              borderRadius: '8px',
+              cursor: 'pointer',
+              fontSize: '13px',
+              fontWeight: 600,
+              transition: 'all 0.2s',
+              fontFamily: 'inherit',
+              boxShadow: '0 2px 8px rgba(5,150,105,0.3)'
+            }}
+            onMouseEnter={e => {
+              e.currentTarget.style.transform = 'translateY(-1px)';
+              e.currentTarget.style.boxShadow = '0 4px 12px rgba(5,150,105,0.4)';
+            }}
+            onMouseLeave={e => {
+              e.currentTarget.style.transform = 'translateY(0)';
+              e.currentTarget.style.boxShadow = '0 2px 8px rgba(5,150,105,0.3)';
+            }}
+          >
+            <FaUserPlus size={14} />
+            Cadastrar Cliente
+          </button>
+
           <div style={{
             display: 'flex',
             alignItems: 'center',
@@ -388,6 +521,7 @@ export default function Admin() {
                 <FaUsers color="#4f46e5" /> Clientes Registrados
               </h2>
               <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                {/* CORRIGIDO: Campo de pesquisa funcional */}
                 <div style={{
                   display: 'flex',
                   alignItems: 'center',
@@ -395,12 +529,13 @@ export default function Admin() {
                   background: '#f9fafb',
                   border: '1px solid #e5e7eb',
                   borderRadius: '10px',
-                  padding: '8px 14px'
+                  padding: '8px 14px',
+                  minWidth: '280px'
                 }}>
                   <FaSearch color="#9ca3af" size={16} />
                   <input
                     type="text"
-                    placeholder="Pesquisar cliente..."
+                    placeholder="Pesquisar por nome, email, conta ou BI..."
                     value={search}
                     onChange={e => setSearch(e.target.value)}
                     style={{
@@ -408,35 +543,20 @@ export default function Admin() {
                       background: 'transparent',
                       outline: 'none',
                       fontSize: '14px',
-                      width: '200px',
+                      width: '100%',
                       fontFamily: 'inherit'
                     }}
                   />
                   {search && (
-                    <button onClick={() => setSearch('')} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
+                    <button 
+                      onClick={() => setSearch('')} 
+                      style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+                      title="Limpar pesquisa"
+                    >
                       <FaTimes color="#9ca3af" size={14} />
                     </button>
                   )}
                 </div>
-                <button
-                  onClick={exportarPDF}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '8px',
-                    padding: '8px 16px',
-                    background: '#f3f4f6',
-                    border: '1px solid #e5e7eb',
-                    borderRadius: '10px',
-                    cursor: 'pointer',
-                    fontSize: '13px',
-                    fontWeight: 600,
-                    color: '#374151',
-                    fontFamily: 'inherit'
-                  }}
-                >
-                  <FaFilePdf color="#dc2626" /> Exportar PDF
-                </button>
               </div>
             </div>
 
@@ -579,32 +699,63 @@ export default function Admin() {
             boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
             border: '1px solid #e5e7eb'
           }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '12px' }}>
               <h2 style={{ margin: 0, fontSize: '18px', color: '#111827', display: 'flex', alignItems: 'center', gap: '10px' }}>
                 <FaChartBar color="#0891b8" /> Transações Recentes
               </h2>
-              <button
-                onClick={handleTestarJuros}
-                disabled={operacaoLoading}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '8px',
-                  padding: '10px 18px',
-                  background: 'linear-gradient(135deg, #7c3aed, #a855f7)',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '10px',
-                  cursor: 'pointer',
-                  fontSize: '13px',
-                  fontWeight: 600,
-                  fontFamily: 'inherit',
-                  opacity: operacaoLoading ? 0.6 : 1
-                }}
-              >
-                {operacaoLoading ? <FaSpinner className="spin" /> : <FaFlask />}
-                Testar Juros Automáticos
-              </button>
+              <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                {/* MOVIDO: Botão Exportar PDF para a aba Relatórios */}
+                <button
+                  onClick={exportarPDF}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    padding: '8px 16px',
+                    background: '#fef2f2',
+                    border: '1px solid #fecaca',
+                    borderRadius: '10px',
+                    cursor: 'pointer',
+                    fontSize: '13px',
+                    fontWeight: 600,
+                    color: '#dc2626',
+                    fontFamily: 'inherit',
+                    transition: 'all 0.2s'
+                  }}
+                  onMouseEnter={e => {
+                    e.currentTarget.style.background = '#dc2626';
+                    e.currentTarget.style.color = 'white';
+                  }}
+                  onMouseLeave={e => {
+                    e.currentTarget.style.background = '#fef2f2';
+                    e.currentTarget.style.color = '#dc2626';
+                  }}
+                >
+                  <FaFilePdf /> Exportar PDF
+                </button>
+                <button
+                  onClick={handleTestarJuros}
+                  disabled={operacaoLoading}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    padding: '10px 18px',
+                    background: 'linear-gradient(135deg, #7c3aed, #a855f7)',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '10px',
+                    cursor: 'pointer',
+                    fontSize: '13px',
+                    fontWeight: 600,
+                    fontFamily: 'inherit',
+                    opacity: operacaoLoading ? 0.6 : 1
+                  }}
+                >
+                  {operacaoLoading ? <FaSpinner className="spin" /> : <FaFlask />}
+                  Testar Juros Automáticos
+                </button>
+              </div>
             </div>
 
             {loading ? (

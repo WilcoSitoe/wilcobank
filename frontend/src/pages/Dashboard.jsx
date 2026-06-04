@@ -11,7 +11,8 @@ import {
   FaUniversity,
   FaFileAlt,
   FaLightbulb,
-  FaArrowRight
+  FaSpinner,
+  FaLock
 } from 'react-icons/fa';
 
 export default function Dashboard() {
@@ -30,6 +31,10 @@ export default function Dashboard() {
 
   // Estado para taxa de transferência calculada
   const [taxaCalculada, setTaxaCalculada] = useState(0);
+
+  // NOVO: Estado para loading overlay durante operações
+  const [operacaoLoading, setOperacaoLoading] = useState(false);
+  const [operacaoMensagem, setOperacaoMensagem] = useState('');
 
   useEffect(() => {
     if (!clienteId) {
@@ -74,20 +79,43 @@ export default function Dashboard() {
     }
   };
 
+  // NOVO: Handler de levantamento com loading overlay
   const handleLevantamento = async (e) => {
     e.preventDefault();
+
+    // Bloquear múltiplos cliques
+    if (operacaoLoading) return;
+
+    setOperacaoLoading(true);
+    setOperacaoMensagem('A processar levantamento...');
+
     try {
       const res = await api.post(`/clientes/${clienteId}/levantamento`, { valor: parseFloat(valorLev) });
-      alert(`Sucesso! Saldo atual: ${formatarMoeda(res.data.novo_saldo)}`);
-      setValorLev('');
-      carregarDados();
+
+      setOperacaoMensagem('Levantamento realizado com sucesso!');
+
+      // Pequeno delay para mostrar sucesso antes de fechar
+      setTimeout(() => {
+        alert(`Sucesso! Saldo atual: ${formatarMoeda(res.data.novo_saldo)}`);
+        setValorLev('');
+        setOperacaoLoading(false);
+        setOperacaoMensagem('');
+        carregarDados();
+      }, 1000);
+
     } catch (err) {
+      setOperacaoLoading(false);
+      setOperacaoMensagem('');
       alert('Erro: ' + (err.response?.data?.error || err.message));
     }
   };
 
+  // NOVO: Handler de transferência com loading overlay
   const handleTransferencia = async (e) => {
     e.preventDefault();
+
+    // Bloquear múltiplos cliques
+    if (operacaoLoading) return;
 
     const valor = parseFloat(valorTrans);
     const totalComTaxa = valor + taxaCalculada;
@@ -98,20 +126,32 @@ export default function Dashboard() {
       return;
     }
 
+    setOperacaoLoading(true);
+    setOperacaoMensagem('A processar transferência...');
+
     try {
       const res = await api.post(`/clientes/${clienteId}/transferencia`, { 
         valor: valor, 
         conta_destino: contaDestino 
       });
 
-      // Mostrar resumo com taxa no alerta de sucesso
-      alert(`Transferência realizada!\n\nValor enviado: ${formatarMoeda(valor)}\nTaxa de serviço: ${formatarMoeda(res.data.taxa_cobrada || 0)}\nTotal debitado: ${formatarMoeda(res.data.valor_total_debitado || totalComTaxa)}\nNovo saldo: ${formatarMoeda(res.data.novo_saldo)}`);
+      setOperacaoMensagem('Transferência realizada com sucesso!');
 
-      setContaDestino('');
-      setValorTrans('');
-      setTaxaCalculada(0);
-      carregarDados();
+      // Pequeno delay para mostrar sucesso antes de fechar
+      setTimeout(() => {
+        alert(`Transferência realizada!\n\nValor enviado: ${formatarMoeda(valor)}\nTaxa de serviço: ${formatarMoeda(res.data.taxa_cobrada || 0)}\nTotal debitado: ${formatarMoeda(res.data.valor_total_debitado || totalComTaxa)}\nNovo saldo: ${formatarMoeda(res.data.novo_saldo)}`);
+
+        setContaDestino('');
+        setValorTrans('');
+        setTaxaCalculada(0);
+        setOperacaoLoading(false);
+        setOperacaoMensagem('');
+        carregarDados();
+      }, 1000);
+
     } catch (err) {
+      setOperacaoLoading(false);
+      setOperacaoMensagem('');
       alert('Erro: ' + (err.response?.data?.error || err.message));
     }
   };
@@ -125,6 +165,84 @@ export default function Dashboard() {
 
   return (
     <div style={{ maxWidth: '800px', margin: '40px auto', padding: '20px' }}>
+
+      {/* NOVO: Loading Overlay - bloqueia toda a tela durante operação */}
+      {operacaoLoading && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          width: '100%',
+          height: '100%',
+          background: 'rgba(0, 0, 0, 0.7)',
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: 'center',
+          alignItems: 'center',
+          zIndex: 9999,
+          backdropFilter: 'blur(4px)'
+        }}>
+          <div style={{
+            background: 'white',
+            padding: '40px 60px',
+            borderRadius: '16px',
+            textAlign: 'center',
+            boxShadow: '0 10px 40px rgba(0,0,0,0.3)',
+            maxWidth: '400px',
+            width: '90%'
+          }}>
+            <FaSpinner 
+              size={48} 
+              color="#1e3c72" 
+              style={{ 
+                animation: 'spin 1s linear infinite',
+                marginBottom: '20px'
+              }} 
+            />
+            <h3 style={{ 
+              margin: '0 0 10px 0', 
+              color: '#1e3c72', 
+              fontFamily: 'Rockwell',
+              fontSize: '20px'
+            }}>
+              {operacaoMensagem || 'A processar...'}
+            </h3>
+            <p style={{ margin: 0, color: '#666', fontSize: '14px' }}>
+              Por favor, aguarde. Não feche esta janela.
+            </p>
+            <div style={{
+              marginTop: '20px',
+              width: '100%',
+              height: '4px',
+              background: '#e0e0e0',
+              borderRadius: '2px',
+              overflow: 'hidden'
+            }}>
+              <div style={{
+                width: '100%',
+                height: '100%',
+                background: 'linear-gradient(90deg, #1e3c72, #2a5298)',
+                animation: 'loadingBar 1.5s ease-in-out infinite',
+                borderRadius: '2px'
+              }} />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* CSS para animações */}
+      <style>{`
+        @keyframes spin {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
+        }
+        @keyframes loadingBar {
+          0% { transform: translateX(-100%); }
+          50% { transform: translateX(0%); }
+          100% { transform: translateX(100%); }
+        }
+      `}</style>
+
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px' }}>
         <div>
@@ -183,7 +301,7 @@ export default function Dashboard() {
           </div>
         )}
 
-        {/* ABA: LEVANTAMENTO */}
+        {/* ABA: LEVANTAMENTO - COM LOADING */}
         {activeTab === 'levantamento' && (
           <form onSubmit={handleLevantamento}>
             <h3 style={{ marginTop: 0, fontFamily: 'Rockwell' }}>Realizar Levantamento</h3>
@@ -194,15 +312,34 @@ export default function Dashboard() {
               onChange={(e) => setValorLev(e.target.value)} 
               placeholder="0.00" 
               required 
-              style={{ width: '100%', padding: '12px', marginBottom: '15px', border: '1px solid #ddd', borderRadius: '6px', fontSize: '16px' }}
+              disabled={operacaoLoading}
+              style={{ width: '100%', padding: '12px', marginBottom: '15px', border: '1px solid #ddd', borderRadius: '6px', fontSize: '16px', opacity: operacaoLoading ? 0.6 : 1 }}
             />
-            <button type="submit" style={{ width: '100%', padding: '12px', background: '#f39c12', color: 'white', border: 'none', borderRadius: '6px', fontSize: '16px', cursor: 'pointer', fontWeight: 'bold' }}>
-              Confirmar Levantamento
+            <button 
+              type="submit" 
+              disabled={operacaoLoading}
+              style={{ 
+                width: '100%', 
+                padding: '12px', 
+                background: operacaoLoading ? '#ccc' : '#f39c12', 
+                color: 'white', 
+                border: 'none', 
+                borderRadius: '6px', 
+                fontSize: '16px', 
+                cursor: operacaoLoading ? 'not-allowed' : 'pointer', 
+                fontWeight: 'bold',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '8px'
+              }}
+            >
+              {operacaoLoading ? <><FaSpinner className="spin" /> A processar...</> : 'Confirmar Levantamento'}
             </button>
           </form>
         )}
 
-        {/* ABA: TRANSFERÊNCIA — COM RESUMO DE TAXA EM TEMPO REAL */}
+        {/* ABA: TRANSFERÊNCIA - COM LOADING */}
         {activeTab === 'transferencia' && (
           <form onSubmit={handleTransferencia}>
             <h3 style={{ marginTop: 0, fontFamily: 'Rockwell' }}>Transferência Bancária</h3>
@@ -230,7 +367,8 @@ export default function Dashboard() {
               onChange={(e) => setContaDestino(e.target.value)} 
               placeholder="Ex: 123456789 (apenas Conta Corrente)" 
               required 
-              style={{ width: '100%', padding: '12px', marginBottom: '15px', border: '1px solid #ddd', borderRadius: '6px', fontSize: '16px' }}
+              disabled={operacaoLoading}
+              style={{ width: '100%', padding: '12px', marginBottom: '15px', border: '1px solid #ddd', borderRadius: '6px', fontSize: '16px', opacity: operacaoLoading ? 0.6 : 1 }}
             />
 
             <label style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold' }}>Valor a Transferir (MT)</label>
@@ -242,7 +380,8 @@ export default function Dashboard() {
               required 
               min="0.01"
               step="0.01"
-              style={{ width: '100%', padding: '12px', marginBottom: '15px', border: '1px solid #ddd', borderRadius: '6px', fontSize: '16px' }}
+              disabled={operacaoLoading}
+              style={{ width: '100%', padding: '12px', marginBottom: '15px', border: '1px solid #ddd', borderRadius: '6px', fontSize: '16px', opacity: operacaoLoading ? 0.6 : 1 }}
             />
 
             {/* RESUMO DA TRANSFERÊNCIA COM TAXA */}
@@ -299,16 +438,16 @@ export default function Dashboard() {
 
             <button 
               type="submit" 
-              disabled={parseFloat(valorTrans) <= 0 || !contaDestino}
+              disabled={operacaoLoading || parseFloat(valorTrans) <= 0 || !contaDestino}
               style={{ 
                 width: '100%', 
                 padding: '12px', 
-                background: (parseFloat(valorTrans) <= 0 || !contaDestino) ? '#ccc' : '#27ae60', 
+                background: (operacaoLoading || parseFloat(valorTrans) <= 0 || !contaDestino) ? '#ccc' : '#27ae60', 
                 color: 'white', 
                 border: 'none', 
                 borderRadius: '6px', 
                 fontSize: '16px', 
-                cursor: (parseFloat(valorTrans) <= 0 || !contaDestino) ? 'not-allowed' : 'pointer', 
+                cursor: (operacaoLoading || parseFloat(valorTrans) <= 0 || !contaDestino) ? 'not-allowed' : 'pointer', 
                 fontWeight: 'bold',
                 display: 'flex',
                 alignItems: 'center',
@@ -316,8 +455,7 @@ export default function Dashboard() {
                 gap: '8px'
               }}
             >
-              <FaPaperPlane />
-              {(parseFloat(valorTrans) <= 0 || !contaDestino) ? 'Preencha todos os campos' : 'Confirmar Transferência'}
+              {operacaoLoading ? <><FaSpinner className="spin" /> A processar...</> : <><FaPaperPlane /> Confirmar Transferência</>}
             </button>
           </form>
         )}

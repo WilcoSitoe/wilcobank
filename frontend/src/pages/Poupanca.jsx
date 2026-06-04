@@ -32,6 +32,10 @@ export default function Poupanca() {
   const [levantamentosRestantes, setLevantamentosRestantes] = useState(4);
   const [jurosLoading, setJurosLoading] = useState(false);
 
+  // NOVO: Estado para loading overlay durante operações
+  const [operacaoLoading, setOperacaoLoading] = useState(false);
+  const [operacaoMensagem, setOperacaoMensagem] = useState('');
+
   useEffect(() => {
     if (!clienteId) {
       alert('Sessão expirada. Faça login novamente.');
@@ -53,27 +57,43 @@ export default function Poupanca() {
     }
   };
 
-  // Função para Calcular Juros
+  // Função para Calcular Juros - COM LOADING
   const handleCalcularJuros = async () => {
     if (dados.saldo < 1000) {
       alert('Saldo mínimo de 1.000 MZN necessário para receber juros.');
       return;
     }
 
-    setJurosLoading(true);
+    // Bloquear múltiplos cliques
+    if (operacaoLoading) return;
+
+    setOperacaoLoading(true);
+    setOperacaoMensagem('A calcular juros...');
+
     try {
       const res = await api.post(`/clientes/${clienteId}/calcular-juros`);
-      alert(`${res.data.message}`);
-      carregarDados();
+
+      setOperacaoMensagem('Juros creditados com sucesso!');
+
+      setTimeout(() => {
+        alert(`${res.data.message}`);
+        setOperacaoLoading(false);
+        setOperacaoMensagem('');
+        carregarDados();
+      }, 1000);
     } catch (err) {
+      setOperacaoLoading(false);
+      setOperacaoMensagem('');
       alert('Erro: ' + (err.response?.data?.error || err.message));
-    } finally {
-      setJurosLoading(false);
     }
   };
 
+  // NOVO: Handler de levantamento com loading overlay
   const handleLevantamento = async (e) => {
     e.preventDefault();
+
+    // Bloquear múltiplos cliques
+    if (operacaoLoading) return;
 
     if (levantamentosRestantes <= 0) {
       alert('Atingiu o limite de 4 levantamentos mensais para conta Poupança.');
@@ -90,13 +110,25 @@ export default function Poupanca() {
       return;
     }
 
+    setOperacaoLoading(true);
+    setOperacaoMensagem('A processar levantamento...');
+
     try {
       const res = await api.post(`/clientes/${clienteId}/levantamento`, { valor: parseFloat(valorLev) });
-      alert(`Levantamento realizado! Saldo atual: ${res.data.novo_saldo.toFixed(2)} MZN\nLevantamentos restantes este mês: ${levantamentosRestantes - 1}`);
-      setLevantamentosRestantes(prev => prev - 1);
-      setValorLev('');
-      carregarDados();
+
+      setOperacaoMensagem('Levantamento realizado com sucesso!');
+
+      setTimeout(() => {
+        alert(`Levantamento realizado! Saldo atual: ${res.data.novo_saldo.toFixed(2)} MZN\nLevantamentos restantes este mês: ${levantamentosRestantes - 1}`);
+        setLevantamentosRestantes(prev => prev - 1);
+        setValorLev('');
+        setOperacaoLoading(false);
+        setOperacaoMensagem('');
+        carregarDados();
+      }, 1000);
     } catch (err) {
+      setOperacaoLoading(false);
+      setOperacaoMensagem('');
       alert('Erro: ' + (err.response?.data?.error || err.message));
     }
   };
@@ -108,6 +140,84 @@ export default function Poupanca() {
 
   return (
     <div style={{ maxWidth: '800px', margin: '40px auto', padding: '20px' }}>
+
+      {/* NOVO: Loading Overlay - bloqueia toda a tela durante operação */}
+      {operacaoLoading && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          width: '100%',
+          height: '100%',
+          background: 'rgba(0, 0, 0, 0.7)',
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: 'center',
+          alignItems: 'center',
+          zIndex: 9999,
+          backdropFilter: 'blur(4px)'
+        }}>
+          <div style={{
+            background: 'white',
+            padding: '40px 60px',
+            borderRadius: '16px',
+            textAlign: 'center',
+            boxShadow: '0 10px 40px rgba(0,0,0,0.3)',
+            maxWidth: '400px',
+            width: '90%'
+          }}>
+            <FaSpinner 
+              size={48} 
+              color="#2d5016" 
+              style={{ 
+                animation: 'spin 1s linear infinite',
+                marginBottom: '20px'
+              }} 
+            />
+            <h3 style={{ 
+              margin: '0 0 10px 0', 
+              color: '#2d5016', 
+              fontFamily: 'Rockwell',
+              fontSize: '20px'
+            }}>
+              {operacaoMensagem || 'A processar...'}
+            </h3>
+            <p style={{ margin: 0, color: '#666', fontSize: '14px' }}>
+              Por favor, aguarde. Não feche esta janela.
+            </p>
+            <div style={{
+              marginTop: '20px',
+              width: '100%',
+              height: '4px',
+              background: '#e0e0e0',
+              borderRadius: '2px',
+              overflow: 'hidden'
+            }}>
+              <div style={{
+                width: '100%',
+                height: '100%',
+                background: 'linear-gradient(90deg, #2d5016, #3a7d23)',
+                animation: 'loadingBar 1.5s ease-in-out infinite',
+                borderRadius: '2px'
+              }} />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* CSS para animações */}
+      <style>{`
+        @keyframes spin {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
+        }
+        @keyframes loadingBar {
+          0% { transform: translateX(-100%); }
+          50% { transform: translateX(0%); }
+          100% { transform: translateX(100%); }
+        }
+      `}</style>
+
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px' }}>
         <div>
@@ -164,7 +274,7 @@ export default function Poupanca() {
         </span>
       </div>
 
-      {/* Botões de Ação - VERSÃO SIMPLIFICADA */}
+      {/* Botões de Ação */}
       <div style={{ display: 'flex', gap: '10px', marginBottom: '20px', flexWrap: 'wrap' }}>
         <button onClick={() => setActiveTab('saldo')} style={{ flex: 1, padding: '12px', background: activeTab === 'saldo' ? '#2d5016' : '#eee', color: activeTab === 'saldo' ? 'white' : '#333', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', minWidth: '80px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
           <FaInfoCircle /> Dados
@@ -227,6 +337,7 @@ export default function Poupanca() {
           </div>
         )}
 
+        {/* ABA: LEVANTAMENTO - COM LOADING */}
         {activeTab === 'levantamento' && (
           <form onSubmit={handleLevantamento}>
             <h3 style={{ marginTop: 0, color: '#ffc107', display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -247,23 +358,37 @@ export default function Poupanca() {
               placeholder="0.00" 
               required 
               min="1"
-              disabled={levantamentosRestantes <= 0}
-              style={{ width: '100%', padding: '12px', marginBottom: '15px', border: '1px solid #ddd', borderRadius: '6px', fontSize: '16px', opacity: levantamentosRestantes <= 0 ? 0.6 : 1 }}
+              disabled={operacaoLoading || levantamentosRestantes <= 0}
+              style={{ width: '100%', padding: '12px', marginBottom: '15px', border: '1px solid #ddd', borderRadius: '6px', fontSize: '16px', opacity: (operacaoLoading || levantamentosRestantes <= 0) ? 0.6 : 1 }}
             />
             <p style={{ fontSize: '13px', color: '#666', marginBottom: '15px' }}>
               Levantamentos restantes este mês: <strong>{levantamentosRestantes}/4</strong>
             </p>
             <button 
               type="submit" 
-              disabled={levantamentosRestantes <= 0}
-              style={{ width: '100%', padding: '12px', background: levantamentosRestantes <= 0 ? '#ccc' : '#ffc107', color: 'white', border: 'none', borderRadius: '6px', fontSize: '16px', cursor: levantamentosRestantes <= 0 ? 'not-allowed' : 'pointer', fontWeight: 'bold' }}
+              disabled={operacaoLoading || levantamentosRestantes <= 0}
+              style={{ 
+                width: '100%', 
+                padding: '12px', 
+                background: (operacaoLoading || levantamentosRestantes <= 0) ? '#ccc' : '#ffc107', 
+                color: 'white', 
+                border: 'none', 
+                borderRadius: '6px', 
+                fontSize: '16px', 
+                cursor: (operacaoLoading || levantamentosRestantes <= 0) ? 'not-allowed' : 'pointer', 
+                fontWeight: 'bold',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '8px'
+              }}
             >
-              {levantamentosRestantes <= 0 ? 'Limite Atingido' : 'Confirmar Levantamento'}
+              {operacaoLoading ? <><FaSpinner className="spin" /> A processar...</> : 'Confirmar Levantamento'}
             </button>
           </form>
         )}
 
-        {/* ABA: JUROS */}
+        {/* ABA: JUROS - COM LOADING */}
         {activeTab === 'juros' && (
           <div style={{ textAlign: 'center', padding: '20px' }}>
             <h3 style={{ color: '#9c27b0', fontFamily: 'Rockwell', fontSize: '24px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px' }}>
@@ -286,24 +411,24 @@ export default function Poupanca() {
 
             <button 
               onClick={handleCalcularJuros}
-              disabled={jurosLoading || dados.saldo < 1000}
+              disabled={operacaoLoading || dados.saldo < 1000}
               style={{ 
                 padding: '14px 28px', 
-                background: jurosLoading || dados.saldo < 1000 ? '#ccc' : '#9c27b0', 
+                background: (operacaoLoading || dados.saldo < 1000) ? '#ccc' : '#9c27b0', 
                 color: 'white', 
                 border: 'none', 
                 borderRadius: '8px', 
                 fontSize: '16px', 
-                cursor: jurosLoading || dados.saldo < 1000 ? 'not-allowed' : 'pointer',
+                cursor: (operacaoLoading || dados.saldo < 1000) ? 'not-allowed' : 'pointer',
                 fontWeight: 'bold',
-                boxShadow: jurosLoading ? 'none' : '0 4px 12px rgba(156, 39, 176, 0.3)',
+                boxShadow: operacaoLoading ? 'none' : '0 4px 12px rgba(156, 39, 176, 0.3)',
                 transition: 'all 0.3s ease',
                 display: 'inline-flex',
                 alignItems: 'center',
                 gap: '8px'
               }}
             >
-              {jurosLoading ? <><FaSpinner className="spin" /> A calcular juros...</> : <><FaCoins /> Creditar Juros Agora</>}
+              {operacaoLoading ? <><FaSpinner className="spin" /> A calcular juros...</> : <><FaCoins /> Creditar Juros Agora</>}
             </button>
 
             {dados.saldo < 1000 && (

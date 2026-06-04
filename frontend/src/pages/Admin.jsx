@@ -1,631 +1,798 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
-import { jsPDF } from 'jspdf';
-import autoTable from 'jspdf-autotable';
 import {
-  FaUniversity,
-  FaUsers,
-  FaChartBar,
-  FaCoins,
-  FaTrash,
-  FaSpinner,
-  FaExclamationTriangle,
-  FaArrowUp,
-  FaArrowDown,
-  FaFlask,
-  FaSearch,
-  FaFilePdf,
-  FaTimes,
-  FaPlusCircle,
-  FaMinusCircle,
-  FaExchangeAlt,
-  FaChartLine,
-  FaMoneyBillWave
+  FaUniversity, FaUsers, FaChartBar, FaCoins, FaTrash,
+  FaSpinner, FaExclamationTriangle, FaArrowUp, FaArrowDown,
+  FaFlask, FaSearch, FaFilePdf, FaTimes, FaPlusCircle,
+  FaMinusCircle, FaExchangeAlt, FaChartLine, FaMoneyBillWave,
+  FaCheckCircle, FaDoorOpen, FaUserShield, FaPercentage
 } from 'react-icons/fa';
 
 export default function Admin() {
   const navigate = useNavigate();
+  const [abaAtiva, setAbaAtiva] = useState('clientes');
+  const [clientes, setClientes] = useState([]);
+  const [relatorios, setRelatorios] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [search, setSearch] = useState('');
+  const [modalDeposito, setModalDeposito] = useState({ aberto: false, cliente: null });
+  const [valorDeposito, setValorDeposito] = useState('');
+  const [operacaoLoading, setOperacaoLoading] = useState(false);
+  const [notificacao, setNotificacao] = useState(null);
 
+  // Verificar auth
   useEffect(() => {
-    const user = JSON.parse(localStorage.getItem('wilcobank_user'));
-    if (!user || user.role !== 'admin') {
-      alert('Acesso negado!');
-      navigate('/login');
+    const token = localStorage.getItem('token');
+    const tipo = localStorage.getItem('tipo');
+    if (!token || tipo !== 'admin') {
+      navigate('/');
     }
   }, [navigate]);
 
-  // Estados para Gestão de Clientes
-  const [clientes, setClientes] = useState([]);
-  const [loadingClientes, setLoadingClientes] = useState(true);
-  const [depositModal, setDepositModal] = useState(null);
-  const [depositValue, setDepositValue] = useState('');
-
-  // Estados para Relatórios
-  const [relatorios, setRelatorios] = useState(null);
-  const [loadingRelatorios, setLoadingRelatorios] = useState(true);
-  const [jurosTestLoading, setJurosTestLoading] = useState(false);
-
-  // Estados para Pesquisa e Filtro
-  const [searchTerm, setSearchTerm] = useState('');
-  const [filteredTransacoes, setFilteredTransacoes] = useState([]);
-
-  // Aba ativa: 'clientes' | 'relatorios'
-  const [activeTab, setActiveTab] = useState('clientes');
-
+  // Carregar dados
   useEffect(() => {
-    if (activeTab === 'clientes') carregarClientes();
-    if (activeTab === 'relatorios') carregarRelatorios();
-  }, [activeTab]);
+    carregarClientes();
+    carregarRelatorios();
+  }, []);
 
-  // Filtrar transações quando searchTerm ou relatorios mudam
-  useEffect(() => {
-    if (relatorios?.transacoesRecentes) {
-      if (!searchTerm.trim()) {
-        setFilteredTransacoes(relatorios.transacoesRecentes);
-      } else {
-        const termo = searchTerm.toLowerCase();
-        const filtradas = relatorios.transacoesRecentes.filter(t => 
-          t.nome_cliente?.toLowerCase().includes(termo) ||
-          t.id_cliente?.toString().includes(termo) ||
-          t.numero_conta?.includes(termo) ||
-          t.tipo?.toLowerCase().includes(termo)
-        );
-        setFilteredTransacoes(filtradas);
-      }
-    }
-  }, [searchTerm, relatorios]);
-
-  // Carregar lista de clientes
   const carregarClientes = async () => {
     try {
-      const res = await api.get('/clientes');
-      setClientes(res.data || []);
+      setLoading(true);
+      const res = await api.get('/admin/clientes');
+      setClientes(res.data);
     } catch (err) {
-      console.error('Erro ao carregar clientes:', err);
+      setError('Erro ao carregar clientes');
     } finally {
-      setLoadingClientes(false);
+      setLoading(false);
     }
   };
 
-  // Carregar relatórios financeiros
   const carregarRelatorios = async () => {
     try {
+      setLoading(true);
       const res = await api.get('/admin/dashboard');
       setRelatorios(res.data);
-      setFilteredTransacoes(res.data.transacoesRecentes || []);
     } catch (err) {
-      console.error('Erro ao carregar relatórios:', err);
+      setError('Erro ao carregar relatórios');
     } finally {
-      setLoadingRelatorios(false);
+      setLoading(false);
     }
   };
 
-  // Função para testar cálculo de juros automáticos
-  const handleTestarJuros = async () => {
-    if (!window.confirm('Executar cálculo de juros AGORA?\n\nIsto creditará 0.5% em todas as contas Poupança com saldo >= 1.000 MT.\n\nEsta ação é irreversível.')) {
+  const handleLogout = () => {
+    localStorage.removeItem('token');
+    localStorage.removeItem('tipo');
+    localStorage.removeItem('cliente');
+    navigate('/');
+  };
+
+  const handleDelete = async (id) => {
+    if (!window.confirm('Tem certeza que deseja eliminar este cliente?')) return;
+    try {
+      setOperacaoLoading(true);
+      await api.delete(`/admin/clientes/${id}`);
+      mostrarNotificacao('Cliente eliminado com sucesso!', 'success');
+      carregarClientes();
+      carregarRelatorios();
+    } catch (err) {
+      mostrarNotificacao('Erro ao eliminar cliente', 'error');
+    } finally {
+      setOperacaoLoading(false);
+    }
+  };
+
+  const abrirModalDeposito = (cliente) => {
+    setModalDeposito({ aberto: true, cliente });
+    setValorDeposito('');
+  };
+
+  const handleDeposito = async (e) => {
+    e.preventDefault();
+    if (!valorDeposito || parseFloat(valorDeposito) <= 0) {
+      mostrarNotificacao('Digite um valor válido', 'error');
       return;
     }
-
-    setJurosTestLoading(true);
     try {
-      const res = await api.post('/admin/testar-juros');
-      alert(`${res.data.message}\n\nVerifica o terminal do backend para ver o resumo detalhado.`);
-      if (activeTab === 'relatorios') carregarRelatorios();
-    } catch (err) {
-      alert('Erro: ' + (err.response?.data?.error || err.message));
-    } finally {
-      setJurosTestLoading(false);
-    }
-  };
-
-  // Função para exportar PDF - COMPATÍVEL COM jspdf-autotable@5.x (MZN)
-  const handleExportarPDF = () => {
-    const doc = new jsPDF();
-
-    // Título
-    doc.setFontSize(16);
-    doc.setTextColor(30, 30, 60);
-    doc.text('WilcoBank - Relatório de Transações', 14, 20);
-
-    // Data de geração (pt-MZ)
-    doc.setFontSize(10);
-    doc.setTextColor(100, 100, 100);
-    doc.text(`Gerado em: ${new Date().toLocaleString('pt-MZ')}`, 14, 30);
-
-    // Filtro aplicado
-    if (searchTerm.trim()) {
-      doc.text(`Filtro aplicado: "${searchTerm}"`, 14, 38);
-      doc.text(`Total de resultados: ${filteredTransacoes.length}`, 140, 38);
-    } else {
-      doc.text(`Total de transações: ${filteredTransacoes.length}`, 14, 38);
-    }
-
-    // Preparar dados para a tabela
-    const tableData = filteredTransacoes.map(t => {
-      // Mostrar taxa se existir
-      const valorComTaxa = t.taxa_cobrada > 0 
-        ? `${t.valor.toFixed(2)} MT (+${t.taxa_cobrada.toFixed(2)} MT taxa)`
-        : `${t.valor.toFixed(2)} MT`;
-
-      return [
-        new Date(t.data_operacao).toLocaleString('pt-MZ'),
-        t.tipo || 'Outro',
-        t.nome_cliente || 'N/A',
-        valorComTaxa,
-        t.numero_conta || 'N/A'
-      ];
-    });
-
-    // Criar tabela com autoTable
-    autoTable(doc, {
-      startY: 45,
-      head: [['Data/Hora', 'Tipo', 'Cliente', 'Valor', 'Conta']],
-      body: tableData,
-      theme: 'striped',
-      headStyles: { 
-        fillColor: [30, 30, 60],
-        textColor: 255,
-        fontStyle: 'bold'
-      },
-      alternateRowStyles: { fillColor: [245, 245, 245] },
-      columnStyles: {
-        0: { cellWidth: 40 },
-        1: { cellWidth: 30 },
-        2: { cellWidth: 50 },
-        3: { cellWidth: 45, halign: 'right' },
-        4: { cellWidth: 35 }
-      },
-      didParseCell: (data) => {
-        // Colorir valores positivos/negativos
-        if (data.section === 'body' && data.column.index === 3) {
-          const raw = data.cell.raw;
-          if (raw.includes('-') || raw.includes('taxa')) {
-            data.cell.styles.textColor = [220, 53, 69]; // Vermelho para taxas/levantamentos
-          } else {
-            data.cell.styles.textColor = [40, 167, 69]; // Verde para depósitos
-          }
-        }
-      }
-    });
-
-    // Rodapé com paginação
-    const pageCount = doc.getNumberOfPages();
-    for (let i = 1; i <= pageCount; i++) {
-      doc.setPage(i);
-      doc.setFontSize(8);
-      doc.setTextColor(150, 150, 150);
-      doc.text(`Página ${i} de ${pageCount}`, 14, doc.internal.pageSize.height - 10);
-      doc.text('© 2026 WilcoBank - Todos os direitos reservados', 140, doc.internal.pageSize.height - 10);
-    }
-
-    // Salvar PDF
-    const filename = `transacoes_wilcobank_${new Date().toISOString().slice(0,10)}.pdf`;
-    doc.save(filename);
-  };
-
-  // Formatador de moeda MZN (Metical)
-  const formatarMoeda = (valor) => {
-    if (valor === null || valor === undefined) return '0,00 MT';
-    return new Intl.NumberFormat('pt-MZ', { style: 'currency', currency: 'MZN' }).format(valor);
-  };
-
-  // Eliminar cliente
-  const handleDelete = async (id, nome) => {
-    if (!window.confirm(`Tem certeza que deseja eliminar o cliente "${nome}"?\nEsta ação é irreversível.`)) return;
-    try {
-      await api.delete(`/clientes/${id}`);
-      setClientes(prev => prev.filter(c => c.id_cliente !== id));
-      alert('Cliente eliminado com sucesso!');
-    } catch (err) {
-      alert('Erro: ' + (err.response?.data?.error || err.message));
-    }
-  };
-
-  // Fazer depósito
-  const handleDeposit = async (e) => {
-    e.preventDefault();
-    const valor = parseFloat(depositValue);
-    if (!valor || valor <= 0) { alert('Insira um valor válido'); return; }
-    try {
-      const res = await api.post(`/clientes/${depositModal.id_cliente}/deposito`, { valor });
-      alert(`Depósito de ${formatarMoeda(valor)} realizado!`);
-      setDepositModal(null);
-      setDepositValue('');
+      setOperacaoLoading(true);
+      await api.post('/admin/deposito', {
+        id_cliente: modalDeposito.cliente.id_cliente,
+        valor: parseFloat(valorDeposito)
+      });
+      mostrarNotificacao(`Depósito de ${valorDeposito} Kz realizado!`, 'success');
+      setModalDeposito({ aberto: false, cliente: null });
+      setValorDeposito('');
       carregarClientes();
-      if (activeTab === 'relatorios') carregarRelatorios();
+      carregarRelatorios();
     } catch (err) {
-      alert('Erro: ' + (err.response?.data?.error || err.message));
+      mostrarNotificacao(err.response?.data?.error || 'Erro no depósito', 'error');
+    } finally {
+      setOperacaoLoading(false);
     }
   };
 
-  // Componente Card para KPIs
-  const KpiCard = ({ titulo, valor, cor, icone }) => (
-    <div style={{ 
-      background: 'white', padding: '20px', borderRadius: '12px', 
-      boxShadow: '0 2px 10px rgba(0,0,0,0.05)', borderLeft: `4px solid ${cor}`,
-      display: 'flex', alignItems: 'center', gap: '15px'
-    }}>
-      <span style={{ fontSize: '28px', display: 'flex', alignItems: 'center', color: cor }}>{icone}</span>
-      <div>
-        <p style={{ margin: '0 0 5px 0', fontSize: '13px', color: '#666', textTransform: 'uppercase' }}>{titulo}</p>
-        <h3 style={{ margin: 0, color: cor, fontFamily: 'Rockwell', fontSize: '22px' }}>{valor}</h3>
-      </div>
-    </div>
+  const handleTestarJuros = async () => {
+    try {
+      setOperacaoLoading(true);
+      await api.post('/admin/juros');
+      mostrarNotificacao('Juros calculados com sucesso!', 'success');
+      carregarRelatorios();
+      carregarClientes();
+    } catch (err) {
+      mostrarNotificacao('Erro ao calcular juros', 'error');
+    } finally {
+      setOperacaoLoading(false);
+    }
+  };
+
+  const mostrarNotificacao = (msg, tipo) => {
+    setNotificacao({ msg, tipo });
+    setTimeout(() => setNotificacao(null), 4000);
+  };
+
+  const clientesFiltrados = clientes.filter(c =>
+    c.nome_cliente?.toLowerCase().includes(search.toLowerCase()) ||
+    c.email_cliente?.toLowerCase().includes(search.toLowerCase()) ||
+    c.numero_conta?.includes(search)
   );
 
+  const getTipoIcon = (tipo) => {
+    switch (tipo) {
+      case 'Deposito': return <FaPlusCircle color="#28a745" />;
+      case 'Levantamento': return <FaMinusCircle color="#dc3545" />;
+      case 'Transferencia': return <FaExchangeAlt color="#007bff" />;
+      case 'Juros': return <FaChartLine color="#9c27b0" />;
+      case 'Taxa de Serviço': return <FaMoneyBillWave color="#6c757d" />;
+      default: return <FaCoins color="#666" />;
+    }
+  };
+
+  const exportarPDF = () => {
+    window.print();
+  };
+
   return (
-    <div style={{ padding: '20px', maxWidth: '1200px', margin: '0 auto', fontFamily: 'Segoe UI' }}>
-
-      {/* Header */}
-      <div style={{ 
-        display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px',
-        background: 'white', padding: '20px', borderRadius: '12px', boxShadow: '0 2px 10px rgba(0,0,0,0.05)'
+    <div style={{ minHeight: '100vh', background: '#f0f2f5', fontFamily: 'Segoe UI, sans-serif' }}>
+      {/* ===== NAVBAR ESTILOSO ===== */}
+      <nav style={{
+        background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)',
+        color: 'white',
+        padding: '0 32px',
+        height: '64px',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        boxShadow: '0 4px 20px rgba(0,0,0,0.15)',
+        position: 'sticky',
+        top: 0,
+        zIndex: 1000
       }}>
-        <h1 style={{ fontFamily: 'Rockwell', color: '#28283C', margin: 0, display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <FaUniversity color="#1e3c72" /> WilcoBank Admin
-        </h1>
-        <button onClick={() => navigate('/')} style={{ 
-          padding: '10px 20px', background: '#f44336', color: 'white', 
-          border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' 
-        }}>
-          Sair
-        </button>
-      </div>
-
-      {/* Abas de Navegação */}
-      <div style={{ display: 'flex', gap: '10px', marginBottom: '20px' }}>
-        <button onClick={() => setActiveTab('clientes')} style={{ 
-          flex: 1, padding: '12px', 
-          background: activeTab === 'clientes' ? '#1e3c72' : '#eee', 
-          color: activeTab === 'clientes' ? 'white' : '#333', 
-          border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '14px',
-          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px'
-        }}>
-          <FaUsers /> Gestão de Clientes
-        </button>
-        <button onClick={() => setActiveTab('relatorios')} style={{ 
-          flex: 1, padding: '12px', 
-          background: activeTab === 'relatorios' ? '#1e3c72' : '#eee', 
-          color: activeTab === 'relatorios' ? 'white' : '#333', 
-          border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '14px',
-          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px'
-        }}>
-          <FaChartBar /> Relatórios Financeiros
-        </button>
-      </div>
-
-      {/* CONTEÚDO: Aba Clientes */}
-      {activeTab === 'clientes' && (
-        <div style={{ background: 'white', padding: '20px', borderRadius: '12px', boxShadow: '0 2px 10px rgba(0,0,0,0.05)' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
-            <h2 style={{ fontFamily: 'Rockwell', color: '#28283C', margin: 0 }}>Lista de Clientes</h2>
-            <button onClick={() => navigate('/registrar')} style={{ 
-              padding: '8px 16px', background: '#28a745', color: 'white', 
-              border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' 
-            }}>
-              + Novo Cliente
-            </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+          <div style={{
+            width: '40px',
+            height: '40px',
+            background: 'linear-gradient(135deg, #e94560 0%, #ff6b6b 100%)',
+            borderRadius: '10px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            boxShadow: '0 2px 8px rgba(233,69,96,0.3)'
+          }}>
+            <FaUniversity size={20} color="white" />
           </div>
-
-          {loadingClientes ? (
-            <p style={{ textAlign: 'center', padding: '30px' }}>Carregando clientes...</p>
-          ) : clientes.length === 0 ? (
-            <p style={{ textAlign: 'center', padding: '30px', color: '#666' }}>Nenhum cliente cadastrado.</p>
-          ) : (
-            <div style={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                <thead>
-                  <tr style={{ background: '#f8f9fa', textAlign: 'left', borderBottom: '2px solid #ddd' }}>
-                    <th style={{ padding: '12px' }}>ID</th>
-                    <th style={{ padding: '12px' }}>Nome</th>
-                    <th style={{ padding: '12px' }}>Conta</th>
-                    <th style={{ padding: '12px' }}>Tipo</th>
-                    <th style={{ padding: '12px' }}>Saldo</th>
-                    <th style={{ padding: '12px' }}>Email</th>
-                    <th style={{ padding: '12px', textAlign: 'center' }}>Ações</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {clientes.map((c, i) => (
-                    <tr key={c.id_cliente} style={{ borderBottom: '1px solid #eee', background: i % 2 === 0 ? '#fff' : '#fafafa' }}>
-                      <td style={{ padding: '12px', fontWeight: 'bold' }}>#{c.id_cliente}</td>
-                      <td style={{ padding: '12px' }}>{c.nome_cliente} {c.apelido_cliente}</td>
-                      <td style={{ padding: '12px', fontFamily: 'monospace' }}>{c.numero_conta || '---'}</td>
-                      <td style={{ padding: '12px' }}>
-                        <span style={{ padding: '4px 8px', borderRadius: '4px', background: c.tipo_conta === 'Corrente' ? '#e3f2fd' : '#fff3e0', color: c.tipo_conta === 'Corrente' ? '#1976d2' : '#e65100', fontSize: '12px', fontWeight: 'bold' }}>
-                          {c.tipo_conta || 'N/A'}
-                        </span>
-                      </td>
-                      <td style={{ padding: '12px', color: c.saldo > 0 ? '#28a745' : '#666', fontWeight: 'bold' }}>
-                        {formatarMoeda(c.saldo)}
-                      </td>
-                      <td style={{ padding: '12px', fontSize: '13px', color: '#555' }}>{c.email_cliente}</td>
-                      <td style={{ padding: '12px', textAlign: 'center' }}>
-                        <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
-                          <button onClick={() => setDepositModal({ id_cliente: c.id_cliente, nome: c.nome_cliente, numero_conta: c.numero_conta })} style={{ padding: '6px 12px', background: '#2196F3', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                            <FaCoins /> Depósito
-                          </button>
-                          <button onClick={() => handleDelete(c.id_cliente, `${c.nome_cliente} ${c.apelido_cliente}`)} style={{ padding: '6px 12px', background: '#f44336', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                            <FaTrash /> Eliminar
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
+          <div>
+            <h1 style={{ margin: 0, fontSize: '20px', fontWeight: 700, letterSpacing: '0.5px' }}>
+              WilcoBank
+            </h1>
+            <span style={{ fontSize: '11px', color: '#a0aec0', fontWeight: 500, letterSpacing: '1px', textTransform: 'uppercase' }}>
+              Painel Administrativo
+            </span>
+          </div>
         </div>
-      )}
 
-      {/* CONTEÚDO: Aba Relatórios */}
-      {activeTab === 'relatorios' && (
-        <div>
-          {loadingRelatorios ? (
-            <div style={{ background: 'white', padding: '40px', borderRadius: '12px', textAlign: 'center' }}>
-              <p style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px' }}>
-                <FaSpinner className="spin" /> Carregando relatórios...
-              </p>
-            </div>
-          ) : !relatorios ? (
-            <div style={{ background: '#fee', padding: '20px', borderRadius: '12px', color: '#c00', display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <FaExclamationTriangle /> Erro ao carregar relatórios. Verifica se a rota `/api/admin/dashboard` está configurada no backend.
-            </div>
-          ) : (
-            <>
-              {/* KPIs - COM NOVO CARD DE LUCRO COM TAXAS */}
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '15px', marginBottom: '25px' }}>
-                <KpiCard titulo="Total Clientes" valor={relatorios.totalClientes} cor="#1e3c72" icone={<FaUsers />} />
-                <KpiCard titulo="Saldo Total Banco" valor={formatarMoeda(relatorios.saldoTotal)} cor="#2a5298" icone={<FaUniversity />} />
-                <KpiCard titulo="Depósitos (Mês)" valor={formatarMoeda(relatorios.depositosMes)} cor="#28a745" icone={<FaArrowUp />} />
-                <KpiCard titulo="Levantamentos (Mês)" valor={formatarMoeda(relatorios.levantamentosMes)} cor="#dc3545" icone={<FaArrowDown />} />
+        <div style={{ display: 'flex', alignItems: 'center', gap: '24px' }}>
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            background: 'rgba(255,255,255,0.08)',
+            padding: '6px 14px',
+            borderRadius: '20px',
+            fontSize: '13px'
+          }}>
+            <FaUserShield color="#e94560" />
+            <span>Admin</span>
+          </div>
+          <button
+            onClick={handleLogout}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              background: 'rgba(255,255,255,0.1)',
+              border: '1px solid rgba(255,255,255,0.15)',
+              color: '#fff',
+              padding: '8px 18px',
+              borderRadius: '8px',
+              cursor: 'pointer',
+              fontSize: '14px',
+              fontWeight: 500,
+              transition: 'all 0.2s',
+              fontFamily: 'inherit'
+            }}
+            onMouseEnter={e => {
+              e.currentTarget.style.background = 'rgba(233,69,96,0.2)';
+              e.currentTarget.style.borderColor = 'rgba(233,69,96,0.4)';
+            }}
+            onMouseLeave={e => {
+              e.currentTarget.style.background = 'rgba(255,255,255,0.1)';
+              e.currentTarget.style.borderColor = 'rgba(255,255,255,0.15)';
+            }}
+          >
+            <FaDoorOpen size={16} />
+            Sair
+          </button>
+        </div>
+      </nav>
 
-                {/* NOVO: Lucro com Taxas de Transferência */}
-                <KpiCard 
-                  titulo="Lucro com Taxas (Mês)" 
-                  valor={formatarMoeda(relatorios.lucroTaxasMes || 0)} 
-                  cor="#9c27b0" 
-                  icone={<FaCoins />} 
-                />
-              </div>
+      {/* ===== CONTEÚDO PRINCIPAL ===== */}
+      <main style={{ maxWidth: '1400px', margin: '0 auto', padding: '28px 24px' }}>
 
-              {/* Botão de Teste de Juros Automáticos */}
-              <div style={{ 
-                background: '#f3e5f5', 
-                padding: '15px', 
-                borderRadius: '8px', 
-                marginBottom: '25px', 
-                borderLeft: '4px solid #9c27b0',
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                flexWrap: 'wrap',
-                gap: '10px'
-              }}>
-                <div>
-                  <h4 style={{ margin: '0 0 5px 0', color: '#6a1b9a', fontFamily: 'Rockwell', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <FaFlask /> Testar Juros Automáticos
-                  </h4>
-                  <p style={{ margin: 0, fontSize: '13px', color: '#666' }}>
-                    Executa manualmente o cálculo de 0.5% para todas as contas Poupança elegíveis.
-                  </p>
-                </div>
-                <button 
-                  onClick={handleTestarJuros}
-                  disabled={jurosTestLoading}
-                  style={{ 
-                    padding: '10px 20px', 
-                    background: jurosTestLoading ? '#ccc' : '#9c27b0', 
-                    color: 'white', 
-                    border: 'none', 
-                    borderRadius: '6px', 
-                    cursor: jurosTestLoading ? 'not-allowed' : 'pointer',
-                    fontWeight: 'bold',
-                    fontSize: '14px',
+        {/* Notificação */}
+        {notificacao && (
+          <div style={{
+            position: 'fixed',
+            top: '80px',
+            right: '24px',
+            padding: '14px 22px',
+            borderRadius: '10px',
+            color: 'white',
+            fontWeight: 500,
+            fontSize: '14px',
+            zIndex: 2000,
+            animation: 'slideIn 0.3s ease',
+            background: notificacao.tipo === 'success' ? '#28a745' : '#dc3545',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '10px'
+          }}>
+            {notificacao.tipo === 'success' ? <FaCheckCircle /> : <FaExclamationTriangle />}
+            {notificacao.msg}
+          </div>
+        )}
+
+        {/* KPIs */}
+        {relatorios && (
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
+            gap: '20px',
+            marginBottom: '28px'
+          }}>
+            {[
+              { label: 'Total Clientes', valor: relatorios.totalClientes, icon: <FaUsers size={22} />, color: '#4f46e5', bg: '#eef2ff' },
+              { label: 'Saldo Total', valor: `${relatorios.saldoTotal?.toLocaleString('pt-AO')} Kz`, icon: <FaCoins size={22} />, color: '#059669', bg: '#ecfdf5' },
+              { label: 'Depósitos (Mês)', valor: `${relatorios.depositosMes?.toLocaleString('pt-AO')} Kz`, icon: <FaArrowUp size={22} />, color: '#0891b8', bg: '#ecfeff' },
+              { label: 'Levantamentos (Mês)', valor: `${relatorios.levantamentosMes?.toLocaleString('pt-AO')} Kz`, icon: <FaArrowDown size={22} />, color: '#dc2626', bg: '#fef2f2' },
+              { label: 'Lucro com Taxas', valor: `${relatorios.lucroTaxasMes?.toLocaleString('pt-AO')} Kz`, icon: <FaPercentage size={22} />, color: '#7c3aed', bg: '#f5f3ff' },
+              { label: 'Transferências', valor: `${relatorios.transferenciasMes?.toLocaleString('pt-AO')} Kz`, icon: <FaExchangeAlt size={22} />, color: '#ea580c', bg: '#fff7ed' },
+            ].map((kpi, i) => (
+              <div key={i} style={{
+                background: 'white',
+                borderRadius: '14px',
+                padding: '22px',
+                boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
+                border: '1px solid #e5e7eb',
+                transition: 'transform 0.2s, box-shadow 0.2s',
+                cursor: 'default'
+              }}
+              onMouseEnter={e => {
+                e.currentTarget.style.transform = 'translateY(-3px)';
+                e.currentTarget.style.boxShadow = '0 8px 25px rgba(0,0,0,0.08)';
+              }}
+              onMouseLeave={e => {
+                e.currentTarget.style.transform = 'translateY(0)';
+                e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.06)';
+              }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px' }}>
+                  <span style={{ fontSize: '13px', color: '#6b7280', fontWeight: 500 }}>{kpi.label}</span>
+                  <div style={{
+                    width: '40px',
+                    height: '40px',
+                    borderRadius: '10px',
+                    background: kpi.bg,
+                    color: kpi.color,
                     display: 'flex',
                     alignItems: 'center',
-                    gap: '8px',
-                    transition: 'background 0.2s'
-                  }}
-                >
-                  {jurosTestLoading ? <><FaSpinner className="spin" /> A processar...</> : <><FaCoins /> Testar Juros Agora</>}
-                </button>
-              </div>
-
-              {/* CAMPO DE PESQUISA E BOTÃO PDF */}
-              <div style={{ 
-                background: 'white', 
-                padding: '20px', 
-                borderRadius: '12px', 
-                boxShadow: '0 2px 10px rgba(0,0,0,0.05)',
-                marginBottom: '20px'
-              }}>
-                <div style={{ display: 'flex', gap: '10px', marginBottom: '15px', flexWrap: 'wrap' }}>
-                  <div style={{ flex: 1, minWidth: '250px', position: 'relative' }}>
-                    <FaSearch style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#999' }} />
-                    <input
-                      type="text"
-                      placeholder="Pesquisar por nome, ID ou número de conta..."
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                      style={{
-                        width: '100%',
-                        padding: '12px 16px 12px 40px',
-                        borderRadius: '8px',
-                        border: '2px solid #ddd',
-                        fontSize: '14px',
-                        outline: 'none',
-                        transition: 'border-color 0.2s',
-                        boxSizing: 'border-box'
-                      }}
-                      onFocus={(e) => e.target.style.borderColor = '#1e3c72'}
-                      onBlur={(e) => e.target.style.borderColor = '#ddd'}
-                    />
+                    justifyContent: 'center'
+                  }}>
+                    {kpi.icon}
                   </div>
-                  <button
-                    onClick={handleExportarPDF}
-                    disabled={filteredTransacoes.length === 0}
+                </div>
+                <div style={{ fontSize: '24px', fontWeight: 700, color: '#111827' }}>
+                  {kpi.valor}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Abas */}
+        <div style={{
+          display: 'flex',
+          gap: '8px',
+          marginBottom: '24px',
+          background: 'white',
+          padding: '6px',
+          borderRadius: '12px',
+          boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
+          border: '1px solid #e5e7eb',
+          width: 'fit-content'
+        }}>
+          <button
+            onClick={() => setAbaAtiva('clientes')}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              padding: '10px 20px',
+              borderRadius: '8px',
+              border: 'none',
+              cursor: 'pointer',
+              fontSize: '14px',
+              fontWeight: 600,
+              fontFamily: 'inherit',
+              transition: 'all 0.2s',
+              background: abaAtiva === 'clientes' ? '#1a1a2e' : 'transparent',
+              color: abaAtiva === 'clientes' ? 'white' : '#6b7280'
+            }}
+          >
+            <FaUsers /> Gestão de Clientes
+          </button>
+          <button
+            onClick={() => setAbaAtiva('relatorios')}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              padding: '10px 20px',
+              borderRadius: '8px',
+              border: 'none',
+              cursor: 'pointer',
+              fontSize: '14px',
+              fontWeight: 600,
+              fontFamily: 'inherit',
+              transition: 'all 0.2s',
+              background: abaAtiva === 'relatorios' ? '#1a1a2e' : 'transparent',
+              color: abaAtiva === 'relatorios' ? 'white' : '#6b7280'
+            }}
+          >
+            <FaChartBar /> Relatórios Financeiros
+          </button>
+        </div>
+
+        {/* ABA CLIENTES */}
+        {abaAtiva === 'clientes' && (
+          <div style={{
+            background: 'white',
+            borderRadius: '14px',
+            padding: '24px',
+            boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
+            border: '1px solid #e5e7eb'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '12px' }}>
+              <h2 style={{ margin: 0, fontSize: '18px', color: '#111827', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <FaUsers color="#4f46e5" /> Clientes Registrados
+              </h2>
+              <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  background: '#f9fafb',
+                  border: '1px solid #e5e7eb',
+                  borderRadius: '10px',
+                  padding: '8px 14px'
+                }}>
+                  <FaSearch color="#9ca3af" size={16} />
+                  <input
+                    type="text"
+                    placeholder="Pesquisar cliente..."
+                    value={search}
+                    onChange={e => setSearch(e.target.value)}
                     style={{
-                      padding: '12px 24px',
-                      background: filteredTransacoes.length === 0 ? '#ccc' : '#dc3545',
-                      color: 'white',
                       border: 'none',
-                      borderRadius: '8px',
-                      cursor: filteredTransacoes.length === 0 ? 'not-allowed' : 'pointer',
-                      fontWeight: 'bold',
+                      background: 'transparent',
+                      outline: 'none',
                       fontSize: '14px',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '8px',
-                      transition: 'background 0.2s',
-                      whiteSpace: 'nowrap'
+                      width: '200px',
+                      fontFamily: 'inherit'
                     }}
-                  >
-                    <FaFilePdf /> Exportar PDF
-                  </button>
-                  {searchTerm && (
-                    <button
-                      onClick={() => { setSearchTerm(''); setFilteredTransacoes(relatorios.transacoesRecentes || []); }}
-                      style={{
-                        padding: '12px 20px',
-                        background: '#6c757d',
-                        color: 'white',
-                        border: 'none',
-                        borderRadius: '8px',
-                        cursor: 'pointer',
-                        fontWeight: 'bold',
-                        fontSize: '14px',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '6px'
-                      }}
-                    >
-                      <FaTimes /> Limpar
+                  />
+                  {search && (
+                    <button onClick={() => setSearch('')} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
+                      <FaTimes color="#9ca3af" size={14} />
                     </button>
                   )}
                 </div>
-
-                <div style={{ fontSize: '13px', color: '#666' }}>
-                  {searchTerm ? (
-                    <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      <FaChartBar /> <strong>{filteredTransacoes.length}</strong> resultado(s) encontrado(s) para "<strong>{searchTerm}</strong>"
-                    </span>
-                  ) : (
-                    <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      <FaChartBar /> A mostrar <strong>{filteredTransacoes.length}</strong> transação(ões)
-                    </span>
-                  )}
-                </div>
+                <button
+                  onClick={exportarPDF}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    padding: '8px 16px',
+                    background: '#f3f4f6',
+                    border: '1px solid #e5e7eb',
+                    borderRadius: '10px',
+                    cursor: 'pointer',
+                    fontSize: '13px',
+                    fontWeight: 600,
+                    color: '#374151',
+                    fontFamily: 'inherit'
+                  }}
+                >
+                  <FaFilePdf color="#dc2626" /> Exportar PDF
+                </button>
               </div>
+            </div>
 
-              {/* Tabela de Transações Recentes */}
-              <div style={{ background: 'white', padding: '20px', borderRadius: '12px', boxShadow: '0 2px 10px rgba(0,0,0,0.05)' }}>
-                <h3 style={{ marginTop: 0, color: '#28283C', fontFamily: 'Rockwell', marginBottom: '15px' }}>
-                  Últimas Transações
-                </h3>
-
-                {filteredTransacoes.length === 0 ? (
-                  <div style={{ textAlign: 'center', padding: '40px', color: '#666' }}>
-                    <p style={{ fontSize: '48px', margin: '0 0 10px 0', display: 'flex', justifyContent: 'center' }}>
-                      <FaSearch size={48} />
-                    </p>
-                    <p style={{ margin: 0, fontWeight: '500' }}>Nenhuma transação encontrada</p>
-                    {searchTerm && (
-                      <p style={{ margin: '10px 0 0 0', fontSize: '13px' }}>
-                        Tente pesquisar com outros termos ou limpe o filtro
-                      </p>
-                    )}
-                  </div>
-                ) : (
-                  <div style={{ overflowX: 'auto' }}>
-                    <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                      <thead>
-                        <tr style={{ background: '#f8f9fa', textAlign: 'left', borderBottom: '2px solid #ddd' }}>
-                          <th style={{ padding: '12px' }}>Data</th>
-                          <th style={{ padding: '12px' }}>Tipo</th>
-                          <th style={{ padding: '12px' }}>Cliente</th>
-                          <th style={{ padding: '12px', textAlign: 'right' }}>Valor</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {filteredTransacoes.map((t, i) => (
-                          <tr key={t.id_operacao || i} style={{ borderBottom: '1px solid #eee', background: i % 2 === 0 ? '#fff' : '#fafafa' }}>
-                            <td style={{ padding: '12px', color: '#555', fontSize: '14px' }}>
-                              {new Date(t.data_operacao).toLocaleString('pt-MZ')}
-                            </td>
-                            <td style={{ padding: '12px', fontSize: '14px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                              {t.tipo === 'Deposito' && <FaPlusCircle color="#28a745" />}
-                              {t.tipo === 'Levantamento' && <FaMinusCircle color="#dc3545" />}
-                              {t.tipo === 'Transferencia' && <FaExchangeAlt color="#007bff" />}
-                              {t.tipo === 'Juros' && <FaChartLine color="#9c27b0" />}
-                              {t.tipo === 'Taxa de Serviço' && <FaMoneyBillWave color="#6c757d" />}
-                              {t.tipo || 'Outro'}
-                            </td>
-                            <td style={{ padding: '12px', fontWeight: '500', fontSize: '14px' }}>
-                              {t.nome_cliente || 'N/A'}
-                            </td>
-                            <td style={{ 
-                              padding: '12px', 
-                              textAlign: 'right', 
-                              fontWeight: 'bold', 
-                              fontSize: '14px',
-                              color: t.tipo === 'Levantamento' || t.tipo === 'Taxa de Serviço' ? '#dc3545' : '#28a745'
+            {loading ? (
+              <div style={{ textAlign: 'center', padding: '40px', color: '#6b7280' }}>
+                <FaSpinner className="spin" size={32} style={{ marginBottom: '12px' }} />
+                <p>A carregar clientes...</p>
+              </div>
+            ) : (
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px' }}>
+                  <thead>
+                    <tr style={{ borderBottom: '2px solid #e5e7eb' }}>
+                      <th style={{ textAlign: 'left', padding: '12px', color: '#6b7280', fontWeight: 600, fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Cliente</th>
+                      <th style={{ textAlign: 'left', padding: '12px', color: '#6b7280', fontWeight: 600, fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Conta</th>
+                      <th style={{ textAlign: 'left', padding: '12px', color: '#6b7280', fontWeight: 600, fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Tipo</th>
+                      <th style={{ textAlign: 'right', padding: '12px', color: '#6b7280', fontWeight: 600, fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Saldo</th>
+                      <th style={{ textAlign: 'center', padding: '12px', color: '#6b7280', fontWeight: 600, fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Ações</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {clientesFiltrados.map((c, idx) => (
+                      <tr key={c.id_cliente} style={{
+                        borderBottom: '1px solid #f3f4f6',
+                        background: idx % 2 === 0 ? 'white' : '#fafafa',
+                        transition: 'background 0.15s'
+                      }}
+                      onMouseEnter={e => e.currentTarget.style.background = '#f0f9ff'}
+                      onMouseLeave={e => e.currentTarget.style.background = idx % 2 === 0 ? 'white' : '#fafafa'}
+                      >
+                        <td style={{ padding: '14px 12px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            <div style={{
+                              width: '36px',
+                              height: '36px',
+                              borderRadius: '50%',
+                              background: 'linear-gradient(135deg, #4f46e5, #7c3aed)',
+                              color: 'white',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              fontWeight: 700,
+                              fontSize: '13px'
                             }}>
-                              {t.valor?.toFixed(2)} MT
-                              {t.taxa_cobrada > 0 && (
-                                <span style={{ display: 'block', fontSize: '11px', color: '#666', fontWeight: 'normal' }}>
-                                  +{t.taxa_cobrada.toFixed(2)} MT taxa
-                                </span>
-                              )}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
+                              {c.nome_cliente?.charAt(0)?.toUpperCase() || '?'}
+                            </div>
+                            <div>
+                              <div style={{ fontWeight: 600, color: '#111827' }}>{c.nome_cliente} {c.apelido_cliente}</div>
+                              <div style={{ fontSize: '12px', color: '#9ca3af' }}>{c.email_cliente}</div>
+                            </div>
+                          </div>
+                        </td>
+                        <td style={{ padding: '14px 12px', color: '#6b7280', fontFamily: 'monospace', fontSize: '13px' }}>{c.numero_conta || '-'}</td>
+                        <td style={{ padding: '14px 12px' }}>
+                          <span style={{
+                            padding: '4px 10px',
+                            borderRadius: '20px',
+                            fontSize: '12px',
+                            fontWeight: 600,
+                            background: c.nome_tipo === 'Poupanca' ? '#ecfdf5' : '#eef2ff',
+                            color: c.nome_tipo === 'Poupanca' ? '#059669' : '#4f46e5'
+                          }}>
+                            {c.nome_tipo || 'Corrente'}
+                          </span>
+                        </td>
+                        <td style={{ padding: '14px 12px', textAlign: 'right', fontWeight: 600, color: '#111827' }}>
+                          {c.saldo?.toLocaleString('pt-AO')} Kz
+                        </td>
+                        <td style={{ padding: '14px 12px', textAlign: 'center' }}>
+                          <div style={{ display: 'flex', gap: '6px', justifyContent: 'center' }}>
+                            <button
+                              onClick={() => abrirModalDeposito(c)}
+                              disabled={operacaoLoading}
+                              title="Depositar"
+                              style={{
+                                width: '32px',
+                                height: '32px',
+                                borderRadius: '8px',
+                                border: 'none',
+                                background: '#ecfdf5',
+                                color: '#059669',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                transition: 'all 0.2s'
+                              }}
+                              onMouseEnter={e => e.currentTarget.style.background = '#059669'}
+                              onMouseLeave={e => e.currentTarget.style.background = '#ecfdf5'}
+                            >
+                              <FaCoins size={14} />
+                            </button>
+                            <button
+                              onClick={() => handleDelete(c.id_cliente)}
+                              disabled={operacaoLoading}
+                              title="Eliminar"
+                              style={{
+                                width: '32px',
+                                height: '32px',
+                                borderRadius: '8px',
+                                border: 'none',
+                                background: '#fef2f2',
+                                color: '#dc2626',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                transition: 'all 0.2s'
+                              }}
+                              onMouseEnter={e => e.currentTarget.style.background = '#dc2626'}
+                              onMouseLeave={e => e.currentTarget.style.background = '#fef2f2'}
+                            >
+                              <FaTrash size={14} />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                    {clientesFiltrados.length === 0 && (
+                      <tr>
+                        <td colSpan={5} style={{ textAlign: 'center', padding: '40px', color: '#9ca3af' }}>
+                          <FaSearch size={24} style={{ marginBottom: '8px', opacity: 0.5 }} />
+                          <p>Nenhum cliente encontrado</p>
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
               </div>
-            </>
-          )}
-        </div>
-      )}
+            )}
+          </div>
+        )}
 
-      {/* Modal de Depósito */}
-      {depositModal && (
-        <div style={{
-          position: 'fixed', top: 0, left: 0, width: '100%', height: '100%',
-          background: 'rgba(0,0,0,0.5)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000
-        }}>
-          <div style={{ background: 'white', padding: '30px', borderRadius: '12px', width: '90%', maxWidth: '400px', boxShadow: '0 4px 20px rgba(0,0,0,0.2)' }}>
-            <h3 style={{ margin: '0 0 15px 0', fontFamily: 'Rockwell', color: '#28283C', display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <FaCoins color="#9c27b0" /> Depositar em {depositModal.nome}
-            </h3>
-            <p style={{ color: '#666', fontSize: '14px', marginBottom: '15px' }}>
-              Conta: <strong>{depositModal.numero_conta}</strong>
-            </p>
-            <form onSubmit={handleDeposit}>
-              <input
-                type="number" step="0.01" min="0.01"
-                placeholder="Valor do depósito (MT)"
-                value={depositValue}
-                onChange={(e) => setDepositValue(e.target.value)}
-                required
-                style={{ width: '100%', padding: '12px', marginBottom: '15px', borderRadius: '6px', border: '1px solid #ccc', boxSizing: 'border-box', fontSize: '15px' }}
-              />
-              <div style={{ display: 'flex', gap: '10px' }}>
-                <button type="submit" style={{ flex: 1, padding: '12px', background: '#28a745', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>
-                  Confirmar
-                </button>
-                <button type="button" onClick={() => { setDepositModal(null); setDepositValue(''); }} style={{ flex: 1, padding: '12px', background: '#ccc', color: '#333', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>
-                  Cancelar
-                </button>
+        {/* ABA RELATÓRIOS */}
+        {abaAtiva === 'relatorios' && (
+          <div style={{
+            background: 'white',
+            borderRadius: '14px',
+            padding: '24px',
+            boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
+            border: '1px solid #e5e7eb'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+              <h2 style={{ margin: 0, fontSize: '18px', color: '#111827', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <FaChartBar color="#0891b8" /> Transações Recentes
+              </h2>
+              <button
+                onClick={handleTestarJuros}
+                disabled={operacaoLoading}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  padding: '10px 18px',
+                  background: 'linear-gradient(135deg, #7c3aed, #a855f7)',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '10px',
+                  cursor: 'pointer',
+                  fontSize: '13px',
+                  fontWeight: 600,
+                  fontFamily: 'inherit',
+                  opacity: operacaoLoading ? 0.6 : 1
+                }}
+              >
+                {operacaoLoading ? <FaSpinner className="spin" /> : <FaFlask />}
+                Testar Juros Automáticos
+              </button>
+            </div>
+
+            {loading ? (
+              <div style={{ textAlign: 'center', padding: '40px', color: '#6b7280' }}>
+                <FaSpinner className="spin" size={32} style={{ marginBottom: '12px' }} />
+                <p>A carregar relatórios...</p>
               </div>
+            ) : relatorios?.transacoesRecentes?.length > 0 ? (
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px' }}>
+                  <thead>
+                    <tr style={{ borderBottom: '2px solid #e5e7eb' }}>
+                      <th style={{ textAlign: 'left', padding: '12px', color: '#6b7280', fontWeight: 600, fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Data</th>
+                      <th style={{ textAlign: 'left', padding: '12px', color: '#6b7280', fontWeight: 600, fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Cliente</th>
+                      <th style={{ textAlign: 'left', padding: '12px', color: '#6b7280', fontWeight: 600, fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Tipo</th>
+                      <th style={{ textAlign: 'right', padding: '12px', color: '#6b7280', fontWeight: 600, fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Valor</th>
+                      <th style={{ textAlign: 'right', padding: '12px', color: '#6b7280', fontWeight: 600, fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Taxa</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {relatorios.transacoesRecentes.map((t, idx) => (
+                      <tr key={t.id_operacao} style={{
+                        borderBottom: '1px solid #f3f4f6',
+                        background: idx % 2 === 0 ? 'white' : '#fafafa'
+                      }}>
+                        <td style={{ padding: '14px 12px', color: '#6b7280', fontSize: '13px' }}>
+                          {new Date(t.data_operacao).toLocaleDateString('pt-AO')}
+                        </td>
+                        <td style={{ padding: '14px 12px', fontWeight: 500, color: '#111827' }}>{t.nome_cliente}</td>
+                        <td style={{ padding: '14px 12px' }}>
+                          <span style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '6px',
+                            padding: '4px 10px',
+                            borderRadius: '20px',
+                            fontSize: '12px',
+                            fontWeight: 600,
+                            background: t.tipo === 'Deposito' ? '#ecfdf5' :
+                                       t.tipo === 'Levantamento' ? '#fef2f2' :
+                                       t.tipo === 'Transferencia' ? '#eff6ff' :
+                                       t.tipo === 'Juros' ? '#faf5ff' : '#f3f4f6',
+                            color: t.tipo === 'Deposito' ? '#059669' :
+                                   t.tipo === 'Levantamento' ? '#dc2626' :
+                                   t.tipo === 'Transferencia' ? '#2563eb' :
+                                   t.tipo === 'Juros' ? '#7c3aed' : '#4b5563'
+                          }}>
+                            {getTipoIcon(t.tipo)} {t.tipo}
+                          </span>
+                        </td>
+                        <td style={{ padding: '14px 12px', textAlign: 'right', fontWeight: 600, color: '#111827' }}>
+                          {t.valor?.toLocaleString('pt-AO')} Kz
+                        </td>
+                        <td style={{ padding: '14px 12px', textAlign: 'right', color: '#6b7280', fontSize: '13px' }}>
+                          {t.taxa_cobrada > 0 ? `${t.taxa_cobrada} Kz` : '-'}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <div style={{ textAlign: 'center', padding: '40px', color: '#9ca3af' }}>
+                <FaChartBar size={32} style={{ marginBottom: '12px', opacity: 0.4 }} />
+                <p>Nenhuma transação encontrada</p>
+              </div>
+            )}
+          </div>
+        )}
+      </main>
+
+      {/* MODAL DEPÓSITO */}
+      {modalDeposito.aberto && (
+        <div style={{
+          position: 'fixed',
+          inset: 0,
+          background: 'rgba(0,0,0,0.5)',
+          backdropFilter: 'blur(4px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 3000,
+          padding: '20px'
+        }}>
+          <div style={{
+            background: 'white',
+            borderRadius: '16px',
+            padding: '28px',
+            width: '100%',
+            maxWidth: '420px',
+            boxShadow: '0 20px 60px rgba(0,0,0,0.2)',
+            animation: 'modalIn 0.3s ease'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+              <h3 style={{ margin: 0, fontSize: '18px', color: '#111827', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <FaCoins color="#059669" /> Depósito para {modalDeposito.cliente?.nome_cliente}
+              </h3>
+              <button
+                onClick={() => setModalDeposito({ aberto: false, cliente: null })}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px' }}
+              >
+                <FaTimes color="#9ca3af" size={20} />
+              </button>
+            </div>
+            <form onSubmit={handleDeposito}>
+              <label style={{ display: 'block', marginBottom: '6px', fontSize: '14px', fontWeight: 500, color: '#374151' }}>
+                Valor (Kz)
+              </label>
+              <input
+                type="number"
+                min="1"
+                step="0.01"
+                value={valorDeposito}
+                onChange={e => setValorDeposito(e.target.value)}
+                required
+                disabled={operacaoLoading}
+                style={{
+                  width: '100%',
+                  padding: '12px 14px',
+                  borderRadius: '10px',
+                  border: '1px solid #e5e7eb',
+                  fontSize: '16px',
+                  marginBottom: '20px',
+                  boxSizing: 'border-box',
+                  fontFamily: 'inherit',
+                  outline: 'none'
+                }}
+                onFocus={e => e.target.style.borderColor = '#4f46e5'}
+                onBlur={e => e.target.style.borderColor = '#e5e7eb'}
+              />
+              <button
+                type="submit"
+                disabled={operacaoLoading}
+                style={{
+                  width: '100%',
+                  padding: '12px',
+                  background: 'linear-gradient(135deg, #059669, #10b981)',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '10px',
+                  fontSize: '15px',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  fontFamily: 'inherit',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '8px',
+                  opacity: operacaoLoading ? 0.7 : 1
+                }}
+              >
+                {operacaoLoading ? <FaSpinner className="spin" /> : <FaCheckCircle />}
+                {operacaoLoading ? 'A processar...' : 'Confirmar Depósito'}
+              </button>
             </form>
           </div>
         </div>
       )}
+
+      {/* LOADING OVERLAY GLOBAL */}
+      {operacaoLoading && (
+        <div style={{
+          position: 'fixed',
+          inset: 0,
+          background: 'rgba(255,255,255,0.85)',
+          backdropFilter: 'blur(6px)',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 4000,
+          gap: '16px'
+        }}>
+          <FaSpinner className="spin" size={48} color="#4f46e5" />
+          <p style={{ color: '#4b5563', fontWeight: 500, fontSize: '16px' }}>A processar operação...</p>
+        </div>
+      )}
+
+      <style>{`
+        @keyframes slideIn {
+          from { transform: translateX(100%); opacity: 0; }
+          to { transform: translateX(0); opacity: 1; }
+        }
+        @keyframes modalIn {
+          from { transform: scale(0.95); opacity: 0; }
+          to { transform: scale(1); opacity: 1; }
+        }
+      `}</style>
     </div>
   );
 }

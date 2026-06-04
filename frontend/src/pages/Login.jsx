@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
-import { FaLock, FaLightbulb, FaTimes } from 'react-icons/fa';
+import { FaLock, FaLightbulb, FaTimes, FaUniversity, FaUser, FaKey, FaArrowRight, FaEnvelope, FaHeadset } from 'react-icons/fa';
 
 export default function Login() {
   const [email, setEmail] = useState('');
@@ -10,8 +10,14 @@ export default function Login() {
   const [showRecover, setShowRecover] = useState(false);
   const [recoverEmail, setRecoverEmail] = useState('');
   const [recoverLoading, setRecoverLoading] = useState(false);
+  const [notificacao, setNotificacao] = useState(null);
 
   const navigate = useNavigate();
+
+  const mostrarNotificacao = (msg, tipo) => {
+    setNotificacao({ msg, tipo });
+    setTimeout(() => setNotificacao(null), 4000);
+  };
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -23,30 +29,22 @@ export default function Login() {
 
       localStorage.setItem('wilcobank_user', JSON.stringify({ id, nome, conta, tipoConta, token, role }));
 
-      alert(`Bem-vindo, ${nome}!`);
+      mostrarNotificacao(`Bem-vindo, ${nome}!`, 'success');
 
-      // REDIRECIONAMENTO: Admin vai para /admin
       if (tipoConta === 'admin' || role === 'admin') {
         navigate('/admin');
       } else {
-        // Normaliza o tipo de conta para comparação (remove cedilhas, lowercase)
         const tipoNormalizado = tipoConta?.toLowerCase().replace(/ç/g, 'c').replace(/ã/g, 'a');
 
         if (tipoNormalizado === 'poupanca' || tipoConta === '2' || tipoConta === 2) {
-          // Redireciona para a tela de Poupança
-          navigate('/poupanca', { 
-            state: { id_cliente: id, nome, conta, tipoConta } 
-          });
+          navigate('/poupanca', { state: { id_cliente: id, nome, conta, tipoConta } });
         } else {
-          // Redireciona para a tela padrão (Conta Corrente)
-          navigate('/dashboard', { 
-            state: { id_cliente: id, nome, conta, tipoConta } 
-          });
+          navigate('/dashboard', { state: { id_cliente: id, nome, conta, tipoConta } });
         }
       }
     } catch (err) {
       console.error('Erro no login:', err);
-      alert('Email ou senha incorretos!');
+      mostrarNotificacao('Email ou senha incorretos!', 'error');
     } finally {
       setLoading(false);
     }
@@ -58,182 +56,380 @@ export default function Login() {
 
     try {
       const res = await api.post('/auth/forgot-password', { email: recoverEmail });
-
-      alert(`${res.data.message}\n\nVerifica a tua caixa de entrada para o link de recuperação.`);
-
+      mostrarNotificacao(`${res.data.message} Verifica a tua caixa de entrada.`, 'success');
       setShowRecover(false);
       setRecoverEmail('');
     } catch (err) {
       console.error('Erro na recuperação:', err);
-      alert('Erro ao solicitar recuperação. Tenta novamente.');
+      mostrarNotificacao('Erro ao solicitar recuperação. Tenta novamente.', 'error');
     } finally {
       setRecoverLoading(false);
     }
   };
 
   return (
-    <div style={{ display: 'flex', height: '100vh', fontFamily: 'Segoe UI', position: 'relative' }}>
+    <div style={{ display: 'flex', height: '100vh', fontFamily: 'Segoe UI, sans-serif', position: 'relative', overflow: 'hidden' }}>
+
+      {/* Notificação */}
+      {notificacao && (
+        <div style={{
+          position: 'fixed',
+          top: '24px',
+          right: '24px',
+          padding: '14px 22px',
+          borderRadius: '10px',
+          color: 'white',
+          fontWeight: 500,
+          fontSize: '14px',
+          zIndex: 5000,
+          animation: 'slideIn 0.3s ease',
+          background: notificacao.tipo === 'success' ? '#28a745' : '#dc3545',
+          boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '10px'
+        }}>
+          {notificacao.tipo === 'success' ? <FaArrowRight /> : <FaTimes />}
+          {notificacao.msg}
+        </div>
+      )}
+
+      {/* ===== LADO ESQUERDO - LOGIN ===== */}
       <div style={{ 
         width: '50%', 
         display: 'flex', 
         flexDirection: 'column', 
         justifyContent: 'center', 
         alignItems: 'center', 
-        background: 'white' 
+        background: '#f8fafc',
+        padding: '40px',
+        position: 'relative'
       }}>
-        <h2 style={{ fontFamily: 'Rockwell', color: 'rgb(40,40,60)', fontSize: '28px' }}>
-          WilcoBank
-        </h2>
-        <p style={{ color: 'rgb(100,100,120)', fontStyle: 'italic' }}>
-          Confiança e Credibilidade
-        </p>
+        {/* Logo no topo */}
+        <div style={{ 
+          position: 'absolute', 
+          top: '32px', 
+          left: '40px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '10px'
+        }}>
+          <div style={{
+            width: '36px',
+            height: '36px',
+            background: 'linear-gradient(135deg, #e94560 0%, #ff6b6b 100%)',
+            borderRadius: '8px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center'
+          }}>
+            <FaUniversity size={18} color="white" />
+          </div>
+          <span style={{ fontWeight: 700, fontSize: '18px', color: '#1a1a2e' }}>WilcoBank</span>
+        </div>
 
-        <form onSubmit={handleLogin} style={{ width: '350px', marginTop: '30px' }}>
-          <h3 style={{ textAlign: 'center', marginBottom: '25px', color: 'rgb(40,40,60)' }}>
-            Acesse sua conta
-          </h3>
-
-          <div style={{ marginBottom: '18px' }}>
-            <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '6px', fontSize: '13px' }}>
-              Email:
-            </label>
-            <input 
-              type="email" 
-              value={email} 
-              onChange={e => setEmail(e.target.value)}
-              placeholder="exemplo@email.com"
-              required
-              disabled={loading || showRecover}
-              style={{ 
-                width: '100%', 
-                padding: '10px 14px', 
-                borderRadius: '6px', 
-                border: '1px solid #ccc',
-                fontSize: '15px',
-                opacity: (loading || showRecover) ? 0.7 : 1
-              }}
-            />
+        <div style={{ width: '380px', maxWidth: '100%' }}>
+          {/* Título */}
+          <div style={{ marginBottom: '32px' }}>
+            <h2 style={{ 
+              margin: '0 0 8px 0', 
+              fontSize: '28px', 
+              fontWeight: 700, 
+              color: '#1e293b',
+              letterSpacing: '-0.5px'
+            }}>
+              Bem-vindo de volta
+            </h2>
+            <p style={{ margin: 0, color: '#64748b', fontSize: '15px' }}>
+              Entre na sua conta para aceder ao WilcoBank
+            </p>
           </div>
 
-          <div style={{ marginBottom: '20px' }}>
-            <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '6px', fontSize: '13px' }}>
-              Senha:
-            </label>
-            <input 
-              type="password" 
-              value={senha} 
-              onChange={e => setSenha(e.target.value)}
-              placeholder="Digite sua senha"
-              required
-              disabled={loading || showRecover}
-              style={{ 
-                width: '100%', 
-                padding: '10px 14px', 
-                borderRadius: '6px', 
-                border: '1px solid #ccc',
-                fontSize: '15px',
-                opacity: (loading || showRecover) ? 0.7 : 1
-              }}
-            />
-          </div>
+          <form onSubmit={handleLogin}>
+            {/* Email - label alinhado à esquerda */}
+            <div style={{ marginBottom: '20px' }}>
+              <label style={{ 
+                display: 'block', 
+                fontWeight: 600, 
+                marginBottom: '8px', 
+                fontSize: '14px',
+                color: '#374151',
+                textAlign: 'left'
+              }}>
+                <FaEnvelope style={{ marginRight: '6px', color: '#6b7280', fontSize: '12px' }} />
+                Email
+              </label>
+              <input 
+                type="email" 
+                value={email} 
+                onChange={e => setEmail(e.target.value)}
+                placeholder="exemplo@email.com"
+                required
+                disabled={loading || showRecover}
+                style={{ 
+                  width: '100%', 
+                  padding: '12px 14px', 
+                  borderRadius: '10px', 
+                  border: '1px solid #d1d5db',
+                  fontSize: '15px',
+                  fontFamily: 'inherit',
+                  outline: 'none',
+                  transition: 'border-color 0.2s, box-shadow 0.2s',
+                  boxSizing: 'border-box',
+                  opacity: (loading || showRecover) ? 0.7 : 1
+                }}
+                onFocus={e => {
+                  e.target.style.borderColor = '#4f46e5';
+                  e.target.style.boxShadow = '0 0 0 3px rgba(79,70,229,0.1)';
+                }}
+                onBlur={e => {
+                  e.target.style.borderColor = '#d1d5db';
+                  e.target.style.boxShadow = 'none';
+                }}
+              />
+            </div>
 
-          {/* Link Recuperar Senha */}
-          <div style={{ marginBottom: '20px', textAlign: 'right' }}>
+            {/* Senha - label alinhado à esquerda */}
+            <div style={{ marginBottom: '8px' }}>
+              <label style={{ 
+                display: 'block', 
+                fontWeight: 600, 
+                marginBottom: '8px', 
+                fontSize: '14px',
+                color: '#374151',
+                textAlign: 'left'
+              }}>
+                <FaKey style={{ marginRight: '6px', color: '#6b7280', fontSize: '12px' }} />
+                Senha
+              </label>
+              <input 
+                type="password" 
+                value={senha} 
+                onChange={e => setSenha(e.target.value)}
+                placeholder="Digite sua senha"
+                required
+                disabled={loading || showRecover}
+                style={{ 
+                  width: '100%', 
+                  padding: '12px 14px', 
+                  borderRadius: '10px', 
+                  border: '1px solid #d1d5db',
+                  fontSize: '15px',
+                  fontFamily: 'inherit',
+                  outline: 'none',
+                  transition: 'border-color 0.2s, box-shadow 0.2s',
+                  boxSizing: 'border-box',
+                  opacity: (loading || showRecover) ? 0.7 : 1
+                }}
+                onFocus={e => {
+                  e.target.style.borderColor = '#4f46e5';
+                  e.target.style.boxShadow = '0 0 0 3px rgba(79,70,229,0.1)';
+                }}
+                onBlur={e => {
+                  e.target.style.borderColor = '#d1d5db';
+                  e.target.style.boxShadow = 'none';
+                }}
+              />
+            </div>
+
+            {/* Link Recuperar Senha - alinhado à direita */}
+            <div style={{ marginBottom: '24px', textAlign: 'right' }}>
+              <button 
+                type="button"
+                onClick={() => setShowRecover(true)}
+                disabled={loading}
+                style={{ 
+                  background: 'none', 
+                  border: 'none', 
+                  color: '#4f46e5', 
+                  cursor: 'pointer', 
+                  fontSize: '13px',
+                  fontWeight: 600,
+                  padding: 0,
+                  fontFamily: 'inherit',
+                  transition: 'color 0.2s'
+                }}
+                onMouseEnter={e => e.currentTarget.style.color = '#4338ca'}
+                onMouseLeave={e => e.currentTarget.style.color = '#4f46e5'}
+              >
+                Esqueceu a senha?
+              </button>
+            </div>
+
             <button 
-              type="button"
-              onClick={() => setShowRecover(true)}
-              disabled={loading}
+              type="submit" 
+              disabled={loading || showRecover}
+              style={{ 
+                width: '100%', 
+                padding: '14px', 
+                background: (loading || showRecover) ? '#a5b4fc' : 'linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)', 
+                color: 'white', 
+                border: 'none', 
+                borderRadius: '10px', 
+                cursor: (loading || showRecover) ? 'not-allowed' : 'pointer', 
+                fontWeight: 600,
+                fontSize: '15px',
+                fontFamily: 'inherit',
+                transition: 'all 0.2s',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '8px',
+                boxShadow: (loading || showRecover) ? 'none' : '0 4px 14px rgba(79,70,229,0.35)'
+              }}
+              onMouseEnter={e => {
+                if (!loading && !showRecover) {
+                  e.currentTarget.style.transform = 'translateY(-1px)';
+                  e.currentTarget.style.boxShadow = '0 6px 20px rgba(79,70,229,0.4)';
+                }
+              }}
+              onMouseLeave={e => {
+                e.currentTarget.style.transform = 'translateY(0)';
+                e.currentTarget.style.boxShadow = '0 4px 14px rgba(79,70,229,0.35)';
+              }}
+            >
+              {loading ? 'Entrando...' : <><FaLock size={14} /> Entrar</>}
+            </button>
+          </form>
+
+          <p style={{ marginTop: '24px', fontSize: '14px', color: '#64748b', textAlign: 'center' }}>
+            Não tem conta?{' '}
+            <button 
+              onClick={() => navigate('/suporte')}
               style={{ 
                 background: 'none', 
                 border: 'none', 
-                color: 'rgb(70,130,180)', 
+                color: '#4f46e5', 
                 cursor: 'pointer', 
-                fontSize: '13px',
-                textDecoration: 'underline',
+                fontWeight: 600,
+                fontSize: '14px',
                 padding: 0,
                 fontFamily: 'inherit'
               }}
             >
-              Esqueceu a senha?
+              Contacte-nos para registo
             </button>
-          </div>
-
-          <button 
-            type="submit" 
-            disabled={loading || showRecover}
-            style={{ 
-              width: '100%', 
-              padding: '12px', 
-              background: (loading || showRecover) ? '#90a4ae' : 'rgb(70,130,180)', 
-              color: 'white', 
-              border: 'none', 
-              borderRadius: '6px', 
-              cursor: (loading || showRecover) ? 'not-allowed' : 'pointer', 
-              fontWeight: 'bold',
-              fontSize: '14px',
-              fontFamily: 'Rockwell',
-              transition: 'background 0.2s'
-            }}
-          >
-            {loading ? 'Entrando...' : 'Entrar'}
-          </button>
-        </form>
-
-        <p style={{ marginTop: '20px', fontSize: '13px', color: '#666' }}>
-          Não tem conta?{' '}
-          <button 
-            onClick={() => navigate('/suporte')}
-            style={{ 
-              background: 'none', 
-              border: 'none', 
-              color: 'rgb(70,130,180)', 
-              cursor: 'pointer', 
-              fontWeight: 'bold',
-              fontSize: '13px',
-              textDecoration: 'none',
-              padding: 0,
-              fontFamily: 'inherit'
-            }}
-          >
-            Contacte-nos para registo
-          </button>
-        </p>
+          </p>
+        </div>
       </div>
 
+      {/* ===== LADO DIREITO - HERO ===== */}
       <div style={{ 
         width: '50%', 
-        background: 'rgb(40,40,60)', 
+        background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)', 
         display: 'flex', 
+        flexDirection: 'column',
         justifyContent: 'center', 
-        alignItems: 'center' 
+        alignItems: 'center',
+        padding: '40px',
+        position: 'relative',
+        overflow: 'hidden'
       }}>
-        <h1 style={{ color: 'white', fontFamily: 'Rockwell', fontSize: '48px' }}>
-          WBank
-        </h1>
-      </div>
-
-      {/* Modal de Recuperar Senha */}
-      {showRecover && (
+        {/* Círculos decorativos */}
         <div style={{
           position: 'absolute',
-          top: 0,
-          left: 0,
-          width: '100%',
-          height: '100%',
+          width: '300px',
+          height: '300px',
+          borderRadius: '50%',
+          background: 'rgba(233,69,96,0.1)',
+          top: '-80px',
+          right: '-80px'
+        }} />
+        <div style={{
+          position: 'absolute',
+          width: '200px',
+          height: '200px',
+          borderRadius: '50%',
+          background: 'rgba(79,70,229,0.1)',
+          bottom: '60px',
+          left: '-60px'
+        }} />
+
+        <div style={{ textAlign: 'center', position: 'relative', zIndex: 1 }}>
+          <div style={{
+            width: '80px',
+            height: '80px',
+            background: 'linear-gradient(135deg, #e94560 0%, #ff6b6b 100%)',
+            borderRadius: '20px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            margin: '0 auto 24px',
+            boxShadow: '0 8px 30px rgba(233,69,96,0.3)'
+          }}>
+            <FaUniversity size={36} color="white" />
+          </div>
+
+          <h1 style={{ 
+            color: 'white', 
+            fontSize: '42px', 
+            fontWeight: 700,
+            margin: '0 0 12px 0',
+            letterSpacing: '-0.5px'
+          }}>
+            WilcoBank
+          </h1>
+          <p style={{ 
+            color: '#a0aec0', 
+            fontSize: '18px',
+            margin: '0 0 40px 0',
+            fontStyle: 'italic'
+          }}>
+            Confiança e Credibilidade
+          </p>
+
+          <div style={{ 
+            display: 'flex', 
+            flexDirection: 'column', 
+            gap: '16px',
+            alignItems: 'center'
+          }}>
+            {[
+              { icon: <FaLock size={16} />, text: 'Segurança garantida' },
+              { icon: <FaUniversity size={16} />, text: 'Operações bancárias 24/7' },
+              { icon: <FaHeadset size={16} />, text: 'Suporte dedicado' }
+            ].map((item, i) => (
+              <div key={i} style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '12px',
+                color: '#cbd5e1',
+                fontSize: '15px',
+                background: 'rgba(255,255,255,0.05)',
+                padding: '10px 20px',
+                borderRadius: '10px',
+                border: '1px solid rgba(255,255,255,0.08)'
+              }}>
+                <span style={{ color: '#e94560' }}>{item.icon}</span>
+                {item.text}
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* ===== MODAL RECUPERAR SENHA ===== */}
+      {showRecover && (
+        <div style={{
+          position: 'fixed',
+          inset: 0,
           background: 'rgba(0,0,0,0.6)',
+          backdropFilter: 'blur(4px)',
           display: 'flex',
           justifyContent: 'center',
           alignItems: 'center',
-          zIndex: 1000
+          zIndex: 4000,
+          padding: '20px'
         }}>
           <div style={{
             background: 'white',
-            padding: '30px',
-            borderRadius: '12px',
-            width: '90%',
-            maxWidth: '400px',
-            boxShadow: '0 10px 40px rgba(0,0,0,0.3)',
-            position: 'relative'
+            padding: '32px',
+            borderRadius: '16px',
+            width: '100%',
+            maxWidth: '420px',
+            boxShadow: '0 20px 60px rgba(0,0,0,0.2)',
+            position: 'relative',
+            animation: 'modalIn 0.3s ease'
           }}>
             {/* Botão Fechar */}
             <button 
@@ -241,45 +437,59 @@ export default function Login() {
               disabled={recoverLoading}
               style={{
                 position: 'absolute',
-                top: '15px',
-                right: '15px',
-                background: '#f1f1f1',
+                top: '16px',
+                right: '16px',
+                background: '#f3f4f6',
                 border: 'none',
-                borderRadius: '50%',
-                width: '30px',
-                height: '30px',
+                borderRadius: '8px',
+                width: '32px',
+                height: '32px',
                 cursor: 'pointer',
-                fontSize: '18px',
-                color: '#666',
                 display: 'flex',
                 alignItems: 'center',
-                justifyContent: 'center'
+                justifyContent: 'center',
+                transition: 'background 0.2s'
               }}
+              onMouseEnter={e => e.currentTarget.style.background = '#e5e7eb'}
+              onMouseLeave={e => e.currentTarget.style.background = '#f3f4f6'}
             >
-              <FaTimes size={14} />
+              <FaTimes size={14} color="#6b7280" />
             </button>
 
-            <h3 style={{ 
-              margin: '0 0 10px 0', 
-              fontFamily: 'Rockwell', 
-              color: 'rgb(40,40,60)',
-              fontSize: '20px',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '10px'
-            }}>
-              <FaLock color="rgb(70,130,180)" /> Recuperar Senha
-            </h3>
-            <p style={{ 
-              color: '#666', 
-              fontSize: '14px', 
-              marginBottom: '20px',
-              lineHeight: '1.5'
-            }}>
-              Digite o email cadastrado e enviaremos instruções para redefinir sua senha.
-            </p>
+            <div style={{ marginBottom: '24px' }}>
+              <h3 style={{ 
+                margin: '0 0 8px 0', 
+                fontSize: '20px',
+                fontWeight: 700,
+                color: '#1e293b',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '10px'
+              }}>
+                <FaLock color="#4f46e5" /> Recuperar Senha
+              </h3>
+              <p style={{ 
+                color: '#64748b', 
+                fontSize: '14px', 
+                margin: 0,
+                lineHeight: '1.5'
+              }}>
+                Digite o email cadastrado e enviaremos instruções para redefinir sua senha.
+              </p>
+            </div>
 
             <form onSubmit={handleRecoverPassword}>
+              <label style={{ 
+                display: 'block', 
+                fontWeight: 600, 
+                marginBottom: '8px', 
+                fontSize: '14px',
+                color: '#374151',
+                textAlign: 'left'
+              }}>
+                <FaEnvelope style={{ marginRight: '6px', color: '#6b7280', fontSize: '12px' }} />
+                Email
+              </label>
               <input 
                 type="email" 
                 value={recoverEmail}
@@ -289,12 +499,24 @@ export default function Login() {
                 disabled={recoverLoading}
                 style={{ 
                   width: '100%', 
-                  padding: '12px', 
-                  marginBottom: '15px', 
-                  borderRadius: '6px', 
-                  border: '1px solid #ccc',
+                  padding: '12px 14px', 
+                  marginBottom: '20px',
+                  borderRadius: '10px', 
+                  border: '1px solid #d1d5db',
                   fontSize: '15px',
-                  boxSizing: 'border-box'
+                  fontFamily: 'inherit',
+                  outline: 'none',
+                  transition: 'border-color 0.2s, box-shadow 0.2s',
+                  boxSizing: 'border-box',
+                  opacity: recoverLoading ? 0.7 : 1
+                }}
+                onFocus={e => {
+                  e.target.style.borderColor = '#4f46e5';
+                  e.target.style.boxShadow = '0 0 0 3px rgba(79,70,229,0.1)';
+                }}
+                onBlur={e => {
+                  e.target.style.borderColor = '#d1d5db';
+                  e.target.style.boxShadow = 'none';
                 }}
               />
 
@@ -303,37 +525,52 @@ export default function Login() {
                 disabled={recoverLoading}
                 style={{ 
                   width: '100%', 
-                  padding: '12px', 
-                  background: recoverLoading ? '#90a4ae' : 'rgb(70,130,180)', 
+                  padding: '14px', 
+                  background: recoverLoading ? '#a5b4fc' : 'linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)', 
                   color: 'white', 
                   border: 'none', 
-                  borderRadius: '6px', 
+                  borderRadius: '10px', 
                   cursor: recoverLoading ? 'not-allowed' : 'pointer', 
-                  fontWeight: 'bold',
-                  fontSize: '14px',
-                  fontFamily: 'Rockwell',
-                  transition: 'background 0.2s'
+                  fontWeight: 600,
+                  fontSize: '15px',
+                  fontFamily: 'inherit',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '8px',
+                  transition: 'all 0.2s'
                 }}
               >
-                {recoverLoading ? 'Enviando...' : 'Enviar Instruções'}
+                {recoverLoading ? 'Enviando...' : <><FaArrowRight size={14} /> Enviar Instruções</>}
               </button>
             </form>
 
             <p style={{ 
-              marginTop: '15px', 
-              fontSize: '12px', 
-              color: '#999', 
+              marginTop: '16px', 
+              fontSize: '13px', 
+              color: '#9ca3af', 
               textAlign: 'center',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               gap: '6px'
             }}>
-              <FaLightbulb size={12} /> Verifica a tua caixa de entrada (e spam) para o link de recuperação.
+              <FaLightbulb size={12} /> Verifica a tua caixa de entrada (e spam) para o link.
             </p>
           </div>
         </div>
       )}
+
+      <style>{`
+        @keyframes slideIn {
+          from { transform: translateX(100%); opacity: 0; }
+          to { transform: translateX(0); opacity: 1; }
+        }
+        @keyframes modalIn {
+          from { transform: scale(0.95); opacity: 0; }
+          to { transform: scale(1); opacity: 1; }
+        }
+      `}</style>
     </div>
   );
 }

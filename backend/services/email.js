@@ -1,31 +1,16 @@
-const nodemailer = require('nodemailer');
+const sgMail = require('@sendgrid/mail');
 
-// Configurar transporter
-const transporter = nodemailer.createTransport({
-  host: process.env.EMAIL_HOST || 'smtp.ethereal.email',
-  port: parseInt(process.env.EMAIL_PORT) || 587,
-  secure: process.env.EMAIL_SECURE === 'true',
-  auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS,
-  },
-  tls: {
-    rejectUnauthorized: process.env.NODE_ENV === 'production'
-  }
-});
+// Configurar API Key do SendGrid
+sgMail.setApiKey(process.env.EMAIL_PASS);
 
 // Função para enviar email de recuperação
 async function enviarEmailRecuperacao(email, token) {
   const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
   const resetLink = `${frontendUrl}/reset-password/${token}`;
 
-  const fromAddress = process.env.EMAIL_FROM 
-    ? process.env.EMAIL_FROM 
-    : '"WilcoBank Suporte" <noreply@wilcobank.com>';
-
-  const mailOptions = {
-    from: fromAddress,
+  const msg = {
     to: email,
+    from: process.env.EMAIL_FROM || 'WilcoBank <wilcokai@gmail.com>',
     subject: 'Recuperação de Senha - WilcoBank',
     html: `
       <!DOCTYPE html>
@@ -77,14 +62,14 @@ async function enviarEmailRecuperacao(email, token) {
   };
 
   try {
-    const info = await transporter.sendMail(mailOptions);
-    console.log(`Email enviado para ${email}: ${info.messageId}`);
-    return info;
+    await sgMail.send(msg);
+    console.log(`Email enviado para ${email} via SendGrid API`);
+    return { messageId: 'sendgrid-api' };
   } catch (error) {
     console.error(`Erro ao enviar email para ${email}:`, {
       message: error.message,
       code: error.code,
-      response: error.response
+      response: error.response?.body
     });
     throw error;
   }
@@ -105,9 +90,9 @@ async function enviarNotificacaoOperacao(email, tipoOperacao, valor, conta, deta
     : '---';
   const dataFormatada = new Date().toLocaleString('pt-MZ');
 
-  const mailOptions = {
-    from: process.env.EMAIL_FROM || 'WilcoBank <noreply@wilcobank.com>',
+  const msg = {
     to: email,
+    from: process.env.EMAIL_FROM || 'WilcoBank <wilcokai@gmail.com>',
     subject: `${cfg.titulo} - WilcoBank`,
     html: `
       <!DOCTYPE html>
@@ -151,9 +136,9 @@ async function enviarNotificacaoOperacao(email, tipoOperacao, valor, conta, deta
   };
 
   try {
-    const info = await transporter.sendMail(mailOptions);
-    console.log(`Notificação enviada para ${email}: ${info.messageId}`);
-    return info;
+    await sgMail.send(msg);
+    console.log(`Notificação enviada para ${email} via SendGrid API`);
+    return { messageId: 'sendgrid-api' };
   } catch (error) {
     console.error(`Falha ao enviar notificação para ${email}:`, error.message);
     return null;

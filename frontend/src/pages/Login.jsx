@@ -27,7 +27,13 @@ export default function Login() {
       const res = await api.post('/auth/login', { email, senha });
       const { id, tipoConta, nome, conta, token, role } = res.data;
 
+      // Guardar objeto completo (para compatibilidade)
       localStorage.setItem('wilcobank_user', JSON.stringify({ id, nome, conta, tipoConta, token, role }));
+
+      // NOVO: Guardar token e tipo separadamente (para Admin.jsx e outras páginas)
+      localStorage.setItem('token', token);
+      localStorage.setItem('tipo', tipoConta || role);
+      localStorage.setItem('cliente', JSON.stringify({ id, nome, conta, tipoConta }));
 
       mostrarNotificacao(`Bem-vindo, ${nome}!`, 'success');
 

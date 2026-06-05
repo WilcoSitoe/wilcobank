@@ -17,13 +17,12 @@ export default function Admin() {
   const [relatorios, setRelatorios] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [search, setSearch] = useState('');
   const [modalDeposito, setModalDeposito] = useState({ aberto: false, cliente: null });
   const [valorDeposito, setValorDeposito] = useState('');
   const [operacaoLoading, setOperacaoLoading] = useState(false);
   const [notificacao, setNotificacao] = useState(null);
 
-  // NOVO: Estados para filtro de transações na aba Relatórios
+  // Estados para filtro de transações na aba Relatórios
   const [filtroTipo, setFiltroTipo] = useState('todos');
   const [filtroCliente, setFiltroCliente] = useState('');
 
@@ -45,10 +44,12 @@ export default function Admin() {
   const carregarClientes = async () => {
     try {
       setLoading(true);
+      setError('');
       const res = await api.get('/admin/clientes');
-      setClientes(res.data);
+      setClientes(res.data || []);
     } catch (err) {
-      setError('Erro ao carregar clientes');
+      console.error('Erro ao carregar clientes:', err);
+      setError('Erro ao carregar clientes. Verifique a conexão com o servidor.');
     } finally {
       setLoading(false);
     }
@@ -60,7 +61,7 @@ export default function Admin() {
       const res = await api.get('/admin/dashboard');
       setRelatorios(res.data);
     } catch (err) {
-      setError('Erro ao carregar relatórios');
+      console.error('Erro ao carregar relatórios:', err);
     } finally {
       setLoading(false);
     }
@@ -83,7 +84,7 @@ export default function Admin() {
       carregarClientes();
       carregarRelatorios();
     } catch (err) {
-      mostrarNotificacao('Erro ao eliminar cliente', 'error');
+      mostrarNotificacao(err.response?.data?.error || 'Erro ao eliminar cliente', 'error');
     } finally {
       setOperacaoLoading(false);
     }
@@ -137,25 +138,9 @@ export default function Admin() {
     setTimeout(() => setNotificacao(null), 4000);
   };
 
-  // Filtro de pesquisa de clientes (aba Clientes)
-  const clientesFiltrados = clientes.filter(c => {
-    const termo = search.toLowerCase().trim();
-    if (!termo) return true;
-    return (
-      (c.nome_cliente && c.nome_cliente.toLowerCase().includes(termo)) ||
-      (c.apelido_cliente && c.apelido_cliente.toLowerCase().includes(termo)) ||
-      (c.email_cliente && c.email_cliente.toLowerCase().includes(termo)) ||
-      (c.numero_conta && c.numero_conta.includes(termo)) ||
-      (c.BI_cliente && c.BI_cliente.includes(termo))
-    );
-  });
-
-  // NOVO: Filtro de transações (aba Relatórios)
+  // Filtro de transações (aba Relatórios)
   const transacoesFiltradas = relatorios?.transacoesRecentes?.filter(t => {
-    // Filtro por tipo
     if (filtroTipo !== 'todos' && t.tipo !== filtroTipo) return false;
-
-    // Filtro por cliente/conta
     const termo = filtroCliente.toLowerCase().trim();
     if (!termo) return true;
     return (
@@ -175,7 +160,6 @@ export default function Admin() {
     }
   };
 
-  // CORRIGIDO: Exportar PDF das transações filtradas
   const exportarPDF = () => {
     if (transacoesFiltradas.length === 0) {
       mostrarNotificacao('Nenhuma transação para exportar', 'error');
@@ -413,7 +397,7 @@ export default function Admin() {
           </div>
         )}
 
-        {/* KPIs - MOEDA CORRIGIDA PARA MT */}
+        {/* KPIs */}
         {relatorios && (
           <div style={{
             display: 'grid',
@@ -524,7 +508,7 @@ export default function Admin() {
           </button>
         </div>
 
-        {/* ABA CLIENTES */}
+        {/* ABA CLIENTES - SEM BARRA DE PESQUISA */}
         {abaAtiva === 'clientes' && (
           <div style={{
             background: 'white',
@@ -533,48 +517,32 @@ export default function Admin() {
             boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
             border: '1px solid #e5e7eb'
           }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '12px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
               <h2 style={{ margin: 0, fontSize: '18px', color: '#111827', display: 'flex', alignItems: 'center', gap: '10px' }}>
                 <FaUsers color="#4f46e5" /> Clientes Registrados
               </h2>
-              <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-                <div style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '8px',
-                  background: '#f9fafb',
-                  border: '1px solid #e5e7eb',
-                  borderRadius: '10px',
-                  padding: '8px 14px',
-                  minWidth: '280px'
-                }}>
-                  <FaSearch color="#9ca3af" size={16} />
-                  <input
-                    type="text"
-                    placeholder="Pesquisar por nome, email, conta ou BI..."
-                    value={search}
-                    onChange={e => setSearch(e.target.value)}
-                    style={{
-                      border: 'none',
-                      background: 'transparent',
-                      outline: 'none',
-                      fontSize: '14px',
-                      width: '100%',
-                      fontFamily: 'inherit'
-                    }}
-                  />
-                  {search && (
-                    <button 
-                      onClick={() => setSearch('')} 
-                      style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
-                      title="Limpar pesquisa"
-                    >
-                      <FaTimes color="#9ca3af" size={14} />
-                    </button>
-                  )}
-                </div>
-              </div>
+              <span style={{ fontSize: '13px', color: '#6b7280', fontWeight: 500 }}>
+                {clientes.length} cliente{clientes.length !== 1 ? 's' : ''}
+              </span>
             </div>
+
+            {error && (
+              <div style={{
+                background: '#fef2f2',
+                border: '1px solid #fecaca',
+                borderRadius: '10px',
+                padding: '14px 18px',
+                marginBottom: '20px',
+                color: '#dc2626',
+                fontSize: '14px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '10px'
+              }}>
+                <FaExclamationTriangle />
+                {error}
+              </div>
+            )}
 
             {loading ? (
               <div style={{ textAlign: 'center', padding: '40px', color: '#6b7280' }}>
@@ -594,7 +562,7 @@ export default function Admin() {
                     </tr>
                   </thead>
                   <tbody>
-                    {clientesFiltrados.map((c, idx) => (
+                    {clientes.map((c, idx) => (
                       <tr key={c.id_cliente} style={{
                         borderBottom: '1px solid #f3f4f6',
                         background: idx % 2 === 0 ? 'white' : '#fafafa',
@@ -691,11 +659,11 @@ export default function Admin() {
                         </td>
                       </tr>
                     ))}
-                    {clientesFiltrados.length === 0 && (
+                    {clientes.length === 0 && !loading && (
                       <tr>
                         <td colSpan={5} style={{ textAlign: 'center', padding: '40px', color: '#9ca3af' }}>
-                          <FaSearch size={24} style={{ marginBottom: '8px', opacity: 0.5 }} />
-                          <p>Nenhum cliente encontrado</p>
+                          <FaUsers size={32} style={{ marginBottom: '12px', opacity: 0.5 }} />
+                          <p>Nenhum cliente registrado</p>
                         </td>
                       </tr>
                     )}
@@ -706,7 +674,7 @@ export default function Admin() {
           </div>
         )}
 
-        {/* ABA RELATÓRIOS - COM FILTROS NOVOS */}
+        {/* ABA RELATÓRIOS - COM FILTROS */}
         {abaAtiva === 'relatorios' && (
           <div style={{
             background: 'white',
@@ -720,9 +688,7 @@ export default function Admin() {
                 <FaChartBar color="#0891b8" /> Transações Recentes
               </h2>
 
-              {/* NOVO: Barra de filtros ao lado do Exportar PDF */}
               <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
-
                 {/* Filtro por tipo de operação */}
                 <div style={{
                   display: 'flex',
@@ -937,7 +903,6 @@ export default function Admin() {
                             {getTipoIcon(t.tipo)} {t.tipo}
                           </span>
                         </td>
-                        {/* MOEDA CORRIGIDA PARA MT */}
                         <td style={{ padding: '14px 12px', textAlign: 'right', fontWeight: 600, color: '#111827' }}>
                           {t.valor?.toLocaleString('pt-MZ')} MT
                         </td>
@@ -959,7 +924,7 @@ export default function Admin() {
         )}
       </main>
 
-      {/* MODAL DEPÓSITO - MOEDA CORRIGIDA */}
+      {/* MODAL DEPÓSITO */}
       {modalDeposito.aberto && (
         <div style={{
           position: 'fixed',
@@ -1079,4 +1044,3 @@ export default function Admin() {
     </div>
   );
 }
-

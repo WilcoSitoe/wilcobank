@@ -45,7 +45,8 @@ export default function Admin() {
     try {
       setLoading(true);
       setError('');
-      const res = await api.get('/admin/clientes');
+      // CORREÇÃO: endpoint /clientes em vez de /admin/clientes
+      const res = await api.get('/clientes');
       setClientes(res.data || []);
     } catch (err) {
       console.error('Erro ao carregar clientes:', err);
@@ -79,7 +80,8 @@ export default function Admin() {
     if (!window.confirm('Tem certeza que deseja eliminar este cliente?')) return;
     try {
       setOperacaoLoading(true);
-      await api.delete(`/admin/clientes/${id}`);
+      // CORREÇÃO: endpoint /clientes/:id em vez de /admin/clientes/:id
+      await api.delete(`/clientes/${id}`);
       mostrarNotificacao('Cliente eliminado com sucesso!', 'success');
       carregarClientes();
       carregarRelatorios();
@@ -103,8 +105,8 @@ export default function Admin() {
     }
     try {
       setOperacaoLoading(true);
-      await api.post('/admin/deposito', {
-        id_cliente: modalDeposito.cliente.id_cliente,
+      // CORREÇÃO: endpoint /clientes/:id/deposito em vez de /admin/deposito
+      await api.post(`/clientes/${modalDeposito.cliente.id_cliente}/deposito`, {
         valor: parseFloat(valorDeposito)
       });
       mostrarNotificacao(`Depósito de ${valorDeposito} MT realizado!`, 'success');
@@ -122,7 +124,7 @@ export default function Admin() {
   const handleTestarJuros = async () => {
     try {
       setOperacaoLoading(true);
-      await api.post('/admin/juros');
+      await api.post('/admin/testar-juros');
       mostrarNotificacao('Juros calculados com sucesso!', 'success');
       carregarRelatorios();
       carregarClientes();
@@ -600,10 +602,10 @@ export default function Admin() {
                             borderRadius: '20px',
                             fontSize: '12px',
                             fontWeight: 600,
-                            background: c.nome_tipo === 'Poupanca' ? '#ecfdf5' : '#eef2ff',
-                            color: c.nome_tipo === 'Poupanca' ? '#059669' : '#4f46e5'
+                            background: c.tipo_conta === 'Poupanca' ? '#ecfdf5' : '#eef2ff',
+                            color: c.tipo_conta === 'Poupanca' ? '#059669' : '#4f46e5'
                           }}>
-                            {c.nome_tipo || 'Corrente'}
+                            {c.tipo_conta || 'Corrente'}
                           </span>
                         </td>
                         <td style={{ padding: '14px 12px', textAlign: 'right', fontWeight: 600, color: '#111827' }}>

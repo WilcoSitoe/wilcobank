@@ -7,7 +7,7 @@ import {
   FaFlask, FaSearch, FaFilePdf, FaTimes, FaPlusCircle,
   FaMinusCircle, FaExchangeAlt, FaChartLine, FaMoneyBillWave,
   FaCheckCircle, FaDoorOpen, FaUserShield, FaPercentage,
-  FaUserPlus
+  FaUserPlus, FaFilter
 } from 'react-icons/fa';
 
 export default function Admin() {
@@ -22,6 +22,10 @@ export default function Admin() {
   const [valorDeposito, setValorDeposito] = useState('');
   const [operacaoLoading, setOperacaoLoading] = useState(false);
   const [notificacao, setNotificacao] = useState(null);
+
+  // NOVO: Estados para filtro de transações na aba Relatórios
+  const [filtroTipo, setFiltroTipo] = useState('todos');
+  const [filtroCliente, setFiltroCliente] = useState('');
 
   // Verificar auth
   useEffect(() => {
@@ -102,7 +106,7 @@ export default function Admin() {
         id_cliente: modalDeposito.cliente.id_cliente,
         valor: parseFloat(valorDeposito)
       });
-      mostrarNotificacao(`Depósito de ${valorDeposito} Kz realizado!`, 'success');
+      mostrarNotificacao(`Depósito de ${valorDeposito} MT realizado!`, 'success');
       setModalDeposito({ aberto: false, cliente: null });
       setValorDeposito('');
       carregarClientes();
@@ -133,7 +137,7 @@ export default function Admin() {
     setTimeout(() => setNotificacao(null), 4000);
   };
 
-  // CORRIGIDO: Filtro de pesquisa mais robusto
+  // Filtro de pesquisa de clientes (aba Clientes)
   const clientesFiltrados = clientes.filter(c => {
     const termo = search.toLowerCase().trim();
     if (!termo) return true;
@@ -146,6 +150,20 @@ export default function Admin() {
     );
   });
 
+  // NOVO: Filtro de transações (aba Relatórios)
+  const transacoesFiltradas = relatorios?.transacoesRecentes?.filter(t => {
+    // Filtro por tipo
+    if (filtroTipo !== 'todos' && t.tipo !== filtroTipo) return false;
+
+    // Filtro por cliente/conta
+    const termo = filtroCliente.toLowerCase().trim();
+    if (!termo) return true;
+    return (
+      (t.nome_cliente && t.nome_cliente.toLowerCase().includes(termo)) ||
+      (t.numero_conta && t.numero_conta.includes(termo))
+    );
+  }) || [];
+
   const getTipoIcon = (tipo) => {
     switch (tipo) {
       case 'Deposito': return <FaPlusCircle color="#28a745" />;
@@ -157,16 +175,13 @@ export default function Admin() {
     }
   };
 
-  // CORRIGIDO: Exportar PDF das TRANSFERÊNCIAS (da aba Relatórios)
+  // CORRIGIDO: Exportar PDF das transações filtradas
   const exportarPDF = () => {
-    if (!relatorios?.transacoesRecentes || relatorios.transacoesRecentes.length === 0) {
+    if (transacoesFiltradas.length === 0) {
       mostrarNotificacao('Nenhuma transação para exportar', 'error');
       return;
     }
 
-    const transacoes = relatorios.transacoesRecentes;
-
-    // Criar conteúdo HTML para impressão
     const printWindow = window.open('', '_blank');
     if (!printWindow) {
       mostrarNotificacao('Permita popups para exportar PDF', 'error');
@@ -182,6 +197,7 @@ export default function Admin() {
           body { font-family: Arial, sans-serif; margin: 40px; color: #333; }
           h1 { color: #1a1a2e; border-bottom: 3px solid #e94560; padding-bottom: 10px; }
           h2 { color: #666; font-size: 16px; margin-top: 30px; }
+          .filtros { background: #f9fafb; padding: 15px; border-radius: 8px; margin: 15px 0; font-size: 13px; color: #666; }
           table { width: 100%; border-collapse: collapse; margin-top: 20px; }
           th { background: #1a1a2e; color: white; padding: 12px; text-align: left; font-size: 12px; text-transform: uppercase; }
           td { padding: 10px 12px; border-bottom: 1px solid #eee; font-size: 14px; }
@@ -199,8 +215,14 @@ export default function Admin() {
       <body>
         <h1><span style="color: #e94560;">●</span> WilcoBank</h1>
         <h2>Relatório de Transações Financeiras</h2>
-        <p><strong>Data:</strong> ${new Date().toLocaleDateString('pt-AO')}</p>
-        <p><strong>Total de Transações:</strong> ${transacoes.length}</p>
+        <p><strong>Data:</strong> ${new Date().toLocaleDateString('pt-MZ')}</p>
+        <p><strong>Total de Transações:</strong> ${transacoesFiltradas.length}</p>
+
+        <div class="filtros">
+          <strong>Filtros aplicados:</strong> 
+          Tipo: ${filtroTipo === 'todos' ? 'Todos' : filtroTipo} | 
+          Cliente/Conta: ${filtroCliente || 'Todos'}
+        </div>
 
         <table>
           <thead>
@@ -214,7 +236,7 @@ export default function Admin() {
             </tr>
           </thead>
           <tbody>
-            ${transacoes.map(t => {
+            ${transacoesFiltradas.map(t => {
               let badgeClass = 'badge-taxa';
               if (t.tipo === 'Deposito') badgeClass = 'badge-deposito';
               else if (t.tipo === 'Levantamento') badgeClass = 'badge-levantamento';
@@ -224,11 +246,11 @@ export default function Admin() {
               return `
                 <tr>
                   <td>#${t.id_operacao}</td>
-                  <td>${new Date(t.data_operacao).toLocaleDateString('pt-AO')} ${new Date(t.data_operacao).toLocaleTimeString('pt-AO', {hour: '2-digit', minute: '2-digit'})}</td>
+                  <td>${new Date(t.data_operacao).toLocaleDateString('pt-MZ')} ${new Date(t.data_operacao).toLocaleTimeString('pt-MZ', {hour: '2-digit', minute: '2-digit'})}</td>
                   <td>${t.nome_cliente}</td>
                   <td><span class="badge ${badgeClass}">${t.tipo}</span></td>
-                  <td class="total">${t.valor?.toLocaleString('pt-AO')} Kz</td>
-                  <td>${t.taxa_cobrada > 0 ? t.taxa_cobrada + ' Kz' : '-'}</td>
+                  <td class="total">${t.valor?.toLocaleString('pt-MZ')} MT</td>
+                  <td>${t.taxa_cobrada > 0 ? t.taxa_cobrada + ' MT' : '-'}</td>
                 </tr>
               `;
             }).join('')}
@@ -236,7 +258,7 @@ export default function Admin() {
         </table>
 
         <div class="footer">
-          <p>WilcoBank - Relatório gerado em ${new Date().toLocaleString('pt-AO')}</p>
+          <p>WilcoBank - Relatório gerado em ${new Date().toLocaleString('pt-MZ')}</p>
           <p>Este documento é confidencial.</p>
         </div>
       </body>
@@ -246,11 +268,7 @@ export default function Admin() {
     printWindow.document.write(html);
     printWindow.document.close();
     printWindow.focus();
-
-    // Pequeno delay para carregar estilos antes de print
-    setTimeout(() => {
-      printWindow.print();
-    }, 250);
+    setTimeout(() => printWindow.print(), 250);
   };
 
   return (
@@ -293,7 +311,6 @@ export default function Admin() {
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-          {/* NOVO: Botão Cadastrar Cliente */}
           <button
             onClick={() => navigate('/registrar')}
             style={{
@@ -396,7 +413,7 @@ export default function Admin() {
           </div>
         )}
 
-        {/* KPIs */}
+        {/* KPIs - MOEDA CORRIGIDA PARA MT */}
         {relatorios && (
           <div style={{
             display: 'grid',
@@ -406,11 +423,11 @@ export default function Admin() {
           }}>
             {[
               { label: 'Total Clientes', valor: relatorios.totalClientes, icon: <FaUsers size={22} />, color: '#4f46e5', bg: '#eef2ff' },
-              { label: 'Saldo Total', valor: `${relatorios.saldoTotal?.toLocaleString('pt-AO')} Kz`, icon: <FaCoins size={22} />, color: '#059669', bg: '#ecfdf5' },
-              { label: 'Depósitos (Mês)', valor: `${relatorios.depositosMes?.toLocaleString('pt-AO')} Kz`, icon: <FaArrowUp size={22} />, color: '#0891b8', bg: '#ecfeff' },
-              { label: 'Levantamentos (Mês)', valor: `${relatorios.levantamentosMes?.toLocaleString('pt-AO')} Kz`, icon: <FaArrowDown size={22} />, color: '#dc2626', bg: '#fef2f2' },
-              { label: 'Lucro com Taxas', valor: `${relatorios.lucroTaxasMes?.toLocaleString('pt-AO')} Kz`, icon: <FaPercentage size={22} />, color: '#7c3aed', bg: '#f5f3ff' },
-              { label: 'Transferências', valor: `${relatorios.transferenciasMes?.toLocaleString('pt-AO')} Kz`, icon: <FaExchangeAlt size={22} />, color: '#ea580c', bg: '#fff7ed' },
+              { label: 'Saldo Total', valor: `${relatorios.saldoTotal?.toLocaleString('pt-MZ')} MT`, icon: <FaCoins size={22} />, color: '#059669', bg: '#ecfdf5' },
+              { label: 'Depósitos (Mês)', valor: `${relatorios.depositosMes?.toLocaleString('pt-MZ')} MT`, icon: <FaArrowUp size={22} />, color: '#0891b8', bg: '#ecfeff' },
+              { label: 'Levantamentos (Mês)', valor: `${relatorios.levantamentosMes?.toLocaleString('pt-MZ')} MT`, icon: <FaArrowDown size={22} />, color: '#dc2626', bg: '#fef2f2' },
+              { label: 'Lucro com Taxas', valor: `${relatorios.lucroTaxasMes?.toLocaleString('pt-MZ')} MT`, icon: <FaPercentage size={22} />, color: '#7c3aed', bg: '#f5f3ff' },
+              { label: 'Transferências', valor: `${relatorios.transferenciasMes?.toLocaleString('pt-MZ')} MT`, icon: <FaExchangeAlt size={22} />, color: '#ea580c', bg: '#fff7ed' },
             ].map((kpi, i) => (
               <div key={i} style={{
                 background: 'white',
@@ -521,7 +538,6 @@ export default function Admin() {
                 <FaUsers color="#4f46e5" /> Clientes Registrados
               </h2>
               <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-                {/* CORRIGIDO: Campo de pesquisa funcional */}
                 <div style={{
                   display: 'flex',
                   alignItems: 'center',
@@ -623,7 +639,7 @@ export default function Admin() {
                           </span>
                         </td>
                         <td style={{ padding: '14px 12px', textAlign: 'right', fontWeight: 600, color: '#111827' }}>
-                          {c.saldo?.toLocaleString('pt-AO')} Kz
+                          {c.saldo?.toLocaleString('pt-MZ')} MT
                         </td>
                         <td style={{ padding: '14px 12px', textAlign: 'center' }}>
                           <div style={{ display: 'flex', gap: '6px', justifyContent: 'center' }}>
@@ -690,7 +706,7 @@ export default function Admin() {
           </div>
         )}
 
-        {/* ABA RELATÓRIOS */}
+        {/* ABA RELATÓRIOS - COM FILTROS NOVOS */}
         {abaAtiva === 'relatorios' && (
           <div style={{
             background: 'white',
@@ -703,8 +719,81 @@ export default function Admin() {
               <h2 style={{ margin: 0, fontSize: '18px', color: '#111827', display: 'flex', alignItems: 'center', gap: '10px' }}>
                 <FaChartBar color="#0891b8" /> Transações Recentes
               </h2>
-              <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-                {/* MOVIDO: Botão Exportar PDF para a aba Relatórios */}
+
+              {/* NOVO: Barra de filtros ao lado do Exportar PDF */}
+              <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+
+                {/* Filtro por tipo de operação */}
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  background: '#f9fafb',
+                  border: '1px solid #e5e7eb',
+                  borderRadius: '10px',
+                  padding: '6px 12px'
+                }}>
+                  <FaFilter color="#9ca3af" size={14} />
+                  <select
+                    value={filtroTipo}
+                    onChange={e => setFiltroTipo(e.target.value)}
+                    style={{
+                      border: 'none',
+                      background: 'transparent',
+                      outline: 'none',
+                      fontSize: '13px',
+                      fontFamily: 'inherit',
+                      color: '#374151',
+                      cursor: 'pointer',
+                      fontWeight: 500
+                    }}
+                  >
+                    <option value="todos">Todos os tipos</option>
+                    <option value="Deposito">Depósito</option>
+                    <option value="Levantamento">Levantamento</option>
+                    <option value="Transferencia">Transferência</option>
+                    <option value="Juros">Juros</option>
+                    <option value="Taxa de Serviço">Taxa de Serviço</option>
+                  </select>
+                </div>
+
+                {/* Filtro por cliente/conta */}
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  background: '#f9fafb',
+                  border: '1px solid #e5e7eb',
+                  borderRadius: '10px',
+                  padding: '6px 12px',
+                  minWidth: '220px'
+                }}>
+                  <FaSearch color="#9ca3af" size={14} />
+                  <input
+                    type="text"
+                    placeholder="Nome do cliente ou conta..."
+                    value={filtroCliente}
+                    onChange={e => setFiltroCliente(e.target.value)}
+                    style={{
+                      border: 'none',
+                      background: 'transparent',
+                      outline: 'none',
+                      fontSize: '13px',
+                      width: '100%',
+                      fontFamily: 'inherit'
+                    }}
+                  />
+                  {filtroCliente && (
+                    <button 
+                      onClick={() => setFiltroCliente('')} 
+                      style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+                    >
+                      <FaTimes color="#9ca3af" size={12} />
+                    </button>
+                  )}
+                </div>
+
+                {/* Botão Exportar PDF */}
                 <button
                   onClick={exportarPDF}
                   style={{
@@ -733,6 +822,7 @@ export default function Admin() {
                 >
                   <FaFilePdf /> Exportar PDF
                 </button>
+
                 <button
                   onClick={handleTestarJuros}
                   disabled={operacaoLoading}
@@ -758,12 +848,53 @@ export default function Admin() {
               </div>
             </div>
 
+            {/* Info de filtros aplicados */}
+            {(filtroTipo !== 'todos' || filtroCliente) && (
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                marginBottom: '16px',
+                padding: '8px 14px',
+                background: '#eff6ff',
+                borderRadius: '8px',
+                fontSize: '13px',
+                color: '#1e40af'
+              }}>
+                <FaFilter size={12} />
+                <span>Filtros: </span>
+                {filtroTipo !== 'todos' && (
+                  <span style={{
+                    padding: '2px 8px',
+                    background: '#dbeafe',
+                    borderRadius: '12px',
+                    fontWeight: 600
+                  }}>
+                    Tipo: {filtroTipo}
+                  </span>
+                )}
+                {filtroCliente && (
+                  <span style={{
+                    padding: '2px 8px',
+                    background: '#dbeafe',
+                    borderRadius: '12px',
+                    fontWeight: 600
+                  }}>
+                    Cliente/Conta: "{filtroCliente}"
+                  </span>
+                )}
+                <span style={{ marginLeft: 'auto', color: '#6b7280' }}>
+                  {transacoesFiltradas.length} resultado(s)
+                </span>
+              </div>
+            )}
+
             {loading ? (
               <div style={{ textAlign: 'center', padding: '40px', color: '#6b7280' }}>
                 <FaSpinner className="spin" size={32} style={{ marginBottom: '12px' }} />
                 <p>A carregar relatórios...</p>
               </div>
-            ) : relatorios?.transacoesRecentes?.length > 0 ? (
+            ) : transacoesFiltradas.length > 0 ? (
               <div style={{ overflowX: 'auto' }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px' }}>
                   <thead>
@@ -776,13 +907,13 @@ export default function Admin() {
                     </tr>
                   </thead>
                   <tbody>
-                    {relatorios.transacoesRecentes.map((t, idx) => (
+                    {transacoesFiltradas.map((t, idx) => (
                       <tr key={t.id_operacao} style={{
                         borderBottom: '1px solid #f3f4f6',
                         background: idx % 2 === 0 ? 'white' : '#fafafa'
                       }}>
                         <td style={{ padding: '14px 12px', color: '#6b7280', fontSize: '13px' }}>
-                          {new Date(t.data_operacao).toLocaleDateString('pt-AO')}
+                          {new Date(t.data_operacao).toLocaleDateString('pt-MZ')}
                         </td>
                         <td style={{ padding: '14px 12px', fontWeight: 500, color: '#111827' }}>{t.nome_cliente}</td>
                         <td style={{ padding: '14px 12px' }}>
@@ -806,11 +937,12 @@ export default function Admin() {
                             {getTipoIcon(t.tipo)} {t.tipo}
                           </span>
                         </td>
+                        {/* MOEDA CORRIGIDA PARA MT */}
                         <td style={{ padding: '14px 12px', textAlign: 'right', fontWeight: 600, color: '#111827' }}>
-                          {t.valor?.toLocaleString('pt-AO')} Kz
+                          {t.valor?.toLocaleString('pt-MZ')} MT
                         </td>
                         <td style={{ padding: '14px 12px', textAlign: 'right', color: '#6b7280', fontSize: '13px' }}>
-                          {t.taxa_cobrada > 0 ? `${t.taxa_cobrada} Kz` : '-'}
+                          {t.taxa_cobrada > 0 ? `${t.taxa_cobrada} MT` : '-'}
                         </td>
                       </tr>
                     ))}
@@ -820,14 +952,14 @@ export default function Admin() {
             ) : (
               <div style={{ textAlign: 'center', padding: '40px', color: '#9ca3af' }}>
                 <FaChartBar size={32} style={{ marginBottom: '12px', opacity: 0.4 }} />
-                <p>Nenhuma transação encontrada</p>
+                <p>Nenhuma transação encontrada com os filtros aplicados</p>
               </div>
             )}
           </div>
         )}
       </main>
 
-      {/* MODAL DEPÓSITO */}
+      {/* MODAL DEPÓSITO - MOEDA CORRIGIDA */}
       {modalDeposito.aberto && (
         <div style={{
           position: 'fixed',
@@ -862,7 +994,7 @@ export default function Admin() {
             </div>
             <form onSubmit={handleDeposito}>
               <label style={{ display: 'block', marginBottom: '6px', fontSize: '14px', fontWeight: 500, color: '#374151' }}>
-                Valor (Kz)
+                Valor (MT)
               </label>
               <input
                 type="number"
@@ -947,3 +1079,4 @@ export default function Admin() {
     </div>
   );
 }
+

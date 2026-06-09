@@ -39,20 +39,22 @@ model Conta {
 }
 
 model TiposOperacao {
-  id_tipo_O     Int    @id
+  id_tipo_O     Int        @id
   nome_operacao String
+  operacoes     Operacao[]
 }
 
 model Operacao {
-  id_operacao       Int      @id @default(autoincrement())
-  data_operacao     DateTime @default(now())
+  id_operacao       Int            @id @default(autoincrement())
+  data_operacao     DateTime       @default(now())
   valor             Float
   id_tipo_O         Int?
   numero_conta      String?
   conta_relacionada String?
-  taxa_cobrada      Float    @default(0)
+  taxa_cobrada      Float          @default(0)
   descricao         String?
-  conta             Conta?   @relation(fields: [numero_conta], references: [numero_conta])
+  tipo              TiposOperacao? @relation(fields: [id_tipo_O], references: [id_tipo_O], onDelete: NoAction, onUpdate: NoAction)
+  conta             Conta?         @relation(fields: [numero_conta], references: [numero_conta])
 }
 
 model PasswordHistory {

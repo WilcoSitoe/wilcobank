@@ -41,7 +41,8 @@ export default function Extrato({ clienteId, tipoConta }) {
     console.log('[EXTRATO] Iniciando carregamento para cliente:', clienteId);
     setStatus('loading');
 
-    const url = `/clientes/${clienteId}/extrato`;
+    // CORREÇÃO: endpoint correto /extrato/:id em vez de /clientes/:id/extrato
+    const url = `/extrato/${clienteId}`;
     console.log('[EXTRATO] Fazendo request:', url);
 
     api.get(url)
@@ -95,6 +96,7 @@ export default function Extrato({ clienteId, tipoConta }) {
     const data_inicio = ''; 
     const data_fim = '';
 
+    // CORREÇÃO: endpoint correto /extrato/:id/export
     const url = `/extrato/${clienteId}/export?format=${formato}&data_inicio=${data_inicio}&data_fim=${data_fim}`;
 
     console.log(`[EXPORT] Solicitando PDF: ${api.defaults.baseURL}${url}`);
@@ -105,9 +107,9 @@ export default function Extrato({ clienteId, tipoConta }) {
     setTimeout(() => {
       setExportLoading(false);
       if (newWindow && !newWindow.closed) {
-        alert(`A gerar extrato PDF...\n\nSe o download não iniciar, verifica se os popups estão bloqueados.`);
+        alert(`A gerar extrato PDF...\\n\\nSe o download não iniciar, verifica se os popups estão bloqueados.`);
       } else {
-        alert(`Popup bloqueado!\n\nPermite popups para ${window.location.origin} e tenta novamente.`);
+        alert(`Popup bloqueado!\\n\\nPermite popups para ${window.location.origin} e tenta novamente.`);
       }
     }, 1500);
   };
@@ -359,6 +361,8 @@ export default function Extrato({ clienteId, tipoConta }) {
           </p>
         </div>
       )}
+
+      <style>{`.spin { animation: spin 1s linear infinite; } @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
     </div>
   );
 }

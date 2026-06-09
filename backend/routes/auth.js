@@ -184,11 +184,12 @@ router.post('/forgot-password', async (req, res) => {
       where: { email: cliente.email_cliente }
     });
 
+    // CORREÇÃO: expires_at como String ISO, não DateTime
     await prisma.passwordReset.create({
       data: {
         email: cliente.email_cliente,
         token,
-        expires_at: new Date(Date.now() + 3600000),
+        expires_at: new Date(Date.now() + 3600000).toISOString(),
         used: 0
       }
     });

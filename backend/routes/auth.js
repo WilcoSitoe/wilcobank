@@ -2,8 +2,8 @@ const express = require('express');
 const router = express.Router();
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const prisma = require('../database/prismaClient'); // ✅ NOVO: Prisma Client
-const { enviarEmailRecuperacao, enviarNotificacaoOperacao } = require('../services/email'); // ✅ CORRIGIDO: adicionado enviarEmailRecuperacao
+const prisma = require('../database/prismaClient');
+const { enviarEmailRecuperacao, enviarNotificacaoOperacao } = require('../services/email');
 
 // =================================================================
 // POST /api/auth/login
@@ -16,7 +16,6 @@ router.post('/login', async (req, res) => {
   }
 
   try {
-    // ✅ VERIFICAÇÃO ADMIN HARDCODED (não está na BD)
     if (email === 'admin@wilcobank.com' && senha === 'admin123') {
       const token = jwt.sign(
         { id: 0, email: 'admin@wilcobank.com', role: 'admin' },
@@ -29,20 +28,17 @@ router.post('/login', async (req, res) => {
         nome: 'Administrador',
         email: 'admin@wilcobank.com',
         conta: 'WB000000',
-        tipoConta: 'admin', // ✅ Frontend reconhece como admin
+        tipoConta: 'admin',
         role: 'admin',
         token
       });
     }
 
-    // LOGIN NORMAL (cliente na base de dados)
     const cliente = await prisma.cliente.findUnique({
       where: { email_cliente: email },
       include: {
         contas: {
-          include: {
-            tipo: true
-          }
+          include: { tipo: true }
         }
       }
     });
@@ -91,7 +87,6 @@ router.post('/register', async (req, res) => {
   }
 
   try {
-    // Verificar se email já existe
     const existente = await prisma.cliente.findUnique({
       where: { email_cliente: email }
     });
@@ -100,12 +95,10 @@ router.post('/register', async (req, res) => {
       return res.status(400).json({ error: 'Email já cadastrado' });
     }
 
-    // Verificar se BI já existe
     if (bi) {
       const biExistente = await prisma.cliente.findUnique({
         where: { BI_cliente: bi }
       });
-
       if (biExistente) {
         return res.status(400).json({ error: 'BI já cadastrado' });
       }
@@ -113,7 +106,6 @@ router.post('/register', async (req, res) => {
 
     const senhaHash = await bcrypt.hash(senha, 10);
 
-    // Criar cliente e conta numa transação
     const resultado = await prisma.$transaction(async (tx) => {
       const novoCliente = await tx.cliente.create({
         data: {
@@ -145,16 +137,15 @@ router.post('/register', async (req, res) => {
       return novoCliente;
     });
 
-    // Notificar (background)
     setTimeout(() => {
       enviarNotificacaoOperacao(email, 'Conta Criada', 0, numero_conta)
         .catch(err => console.error('⚠️ Erro notificação:', err.message));
     }, 0);
 
-    res.status(201).json({ 
-      message: 'Cliente cadastrado com sucesso', 
-      id_cliente: resultado.id_cliente, 
-      numero_conta 
+    res.status(201).json({
+      message: 'Cliente cadastrado com sucesso',
+      id_cliente: resultado.id_cliente,
+      numero_conta
     });
 
   } catch (err) {
@@ -189,23 +180,19 @@ router.post('/forgot-password', async (req, res) => {
       { expiresIn: '1h' }
     );
 
-    await prisma.passwordReset.upsert({
-      where: { email: cliente.email_cliente },
-      update: {
-        token,
-        expires_at: new Date(Date.now() + 3600000).toISOString(),
-        used: 0,
-        created_at: new Date()
-      },
-      create: {
+    await prisma.passwordReset.deleteMany({
+      where: { email: cliente.email_cliente }
+    });
+
+    await prisma.passwordReset.create({
+      data: {
         email: cliente.email_cliente,
         token,
-        expires_at: new Date(Date.now() + 3600000).toISOString(),
+        expires_at: new Date(Date.now() + 3600000),
         used: 0
       }
     });
 
-    // ✅ CORRIGIDO: Usar enviarEmailRecuperacao em vez de enviarNotificacaoOperacao
     setTimeout(() => {
       enviarEmailRecuperacao(cliente.email_cliente, token)
         .catch(err => console.error('⚠️ Erro email recuperação:', err.message));
@@ -230,7 +217,7 @@ router.post('/reset-password', async (req, res) => {
   }
 
   try {
-    const reset = await prisma.passwordReset.findUnique({
+    const reset = await prisma.passwordReset.findFirst({
       where: { token }
     });
 
@@ -247,7 +234,6 @@ router.post('/reset-password', async (req, res) => {
       return res.status(404).json({ error: 'Cliente não encontrado' });
     }
 
-    // Verificar histórico de senhas (últimas 3)
     const historico = await prisma.passwordHistory.findMany({
       where: { id_cliente: cliente.id_cliente },
       orderBy: { data_criacao: 'desc' },
@@ -262,7 +248,6 @@ router.post('/reset-password', async (req, res) => {
       }
     }
 
-    // Atualizar senha numa transação
     await prisma.$transaction([
       prisma.cliente.update({
         where: { id_cliente: cliente.id_cliente },
@@ -275,7 +260,7 @@ router.post('/reset-password', async (req, res) => {
         }
       }),
       prisma.passwordReset.update({
-        where: { token },
+        where: { id_reset: reset.id_reset },
         data: { used: 1 }
       })
     ]);
@@ -284,7 +269,7 @@ router.post('/reset-password', async (req, res) => {
 
   } catch (err) {
     console.error('❌ Erro reset-password:', err);
-    res.status(500).json({ error: 'Erro ao redefinir senha' });
+    res.status(500).json({ error: 'Erro ao redefinir senha: ' + err.message });
   }
 });
 

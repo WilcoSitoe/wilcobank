@@ -75,7 +75,8 @@ model PasswordHistory {
 }
 
 model PasswordReset {
-  email      String   @id
+  id_reset   Int      @id @default(autoincrement())
+  email      String   @unique
   token      String
   expires_at String
   used       Int      @default(0)
